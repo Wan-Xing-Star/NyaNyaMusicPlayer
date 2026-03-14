@@ -106,6 +106,8 @@ class data_manage:
         log.write("将[all]值更改=data_manage.get_time_e")
         self.data_2["all"] += self.times
 
+        self.today = time.strftime("%Y%m%d")
+
         if f"{self.today[:4]}" not in self.data_2["year"].keys():
             log.write(f"未获取到年份键值,已创建[{self.today[:4]}]=data_manage.get_time_e",2)
             self.data_2["year"][f"{self.today[:4]}"] = 0
@@ -310,7 +312,6 @@ class logs:
     
     def __init__(self):
         self.already_init = False
-        self.del_old()
 
     def init(self,levers: int =4) ->None:
         """初始化日志"""
@@ -325,6 +326,7 @@ class logs:
         self.write_lever = levers
         self.logs_on = True
         self.already_init = True
+        self.del_old()
     
     def write(self,content: str,lever: int =4) ->None:
         """写入内容"""
@@ -348,16 +350,14 @@ class logs:
         os.write(self.file,b_txt)
 
     def del_old(self):
-        list_log: list = os.listdir(log_path)
-        for log in list_log:
-            if os.path.splitext(log)[1] != '.wan':
-                list_log.remove(log)
+        log_list: list = os.listdir(log_path)
+        files = [file_name for file_name in log_list if os.path.splitext(file_name)[1] == ".wan"]
         
-        list_log.sort()
-        while len(list_log) >= 10:
-            log_wan = list_log[0]
+        files.sort()
+        while len(files) >= 10:
+            log_wan = files[0]
             os.remove(os.path.normpath(os.path.join(log_path,log_wan)))
-            list_log.remove(log_wan)
+            files.remove(log_wan)
 
     def change_lever(self,lev: int) ->None:
         self.write_lever = lev
@@ -478,7 +478,7 @@ class player:
             pygame.mixer.music.play(loops=0)
         except pygame.error as e:
             log.write(f"加载[{path}]时失败=player.play",1)
-            stop()
+            return None
         if self.fist_play == True:
             log.write("第一次开始播放音乐=player.play")
             self.start_time = time.time()
@@ -599,6 +599,9 @@ class for_songs:
             if message != None:
                 log.write(f"收到切歌消息[message]=for_songs.true_random_play")
                 message = None
+                if is_loop:
+                    self.music = random.randint(0,n-1)
+                    continue
             if is_loop:
                 continue
             self.music = random.randint(0,n-1)
