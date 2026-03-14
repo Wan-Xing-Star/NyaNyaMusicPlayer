@@ -1,0 +1,12 @@
+     *Thank You For Your Use*
+[Info ] 16:29:27|读取配置文件=config_manage.config_read
+[Info ] 16:29:27|开启按键监听=__main__
+[Info ] 16:29:27|开始生成音乐文件路径=summon_music_path
+[Info ] 16:29:27|准备伪随机播放=for_songs.false_random_play
+[Info ] 16:29:27|开始生成伪随机播放列表=for_songs.false_random_play
+[Info ] 16:29:27|开始伪随机播放=for_songs.false_random_play
+[Info ] 16:29:27|加载音乐[F:\4-Musics\music\Galaxy (우주를 줄게)-gura.flac]=player.play
+[Info ] 16:29:30|计算本次播放时长为[3]=data_manage.get_time_e
+[Info ] 16:29:30|本次播放时长已记录
+[Info ] 16:29:30|音乐播放停止=stop
+[Info ] 16:29:30|程序即将关闭=stop

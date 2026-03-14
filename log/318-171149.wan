@@ -1,0 +1,16 @@
+     *Thank You For Your Use*
+
+[Info ] 17:11:49|读取配置文件=config_manage.config_read
+[Warn ] 17:11:49|数据文件[Z:\Project\NyaNyaMusic\data\main.json]不存在,将创建=data_manage.open
+[Info ] 17:11:49|开启按键监听=__main__
+[Info ] 17:11:49|开始生成音乐文件路径=summon_music_path
+[Info ] 17:11:49|准备伪随机播放=for_songs.false_random_play
+[Info ] 17:11:49|开始生成伪随机播放列表=for_songs.false_random_play
+[Info ] 17:11:49|开始伪随机播放=for_songs.false_random_play
+[Info ] 17:11:49|加载音乐[F:\4-Musics\music\Rasputin-gura.flac]=player.play
+[Info ] 17:11:53|计算本次播放时长为[4]=data_manage.get_time_e
+[Warn ] 17:11:53|未获取到年份键值,已创建[2026]=data_manage.get_time_e
+[Warn ] 17:11:53|未获取到月份键值,已创建[202603]=data_manage.get_time_e
+[Info ] 17:11:53|本次播放时长已记录
+[Info ] 17:11:53|音乐播放停止=stop
+[Info ] 17:11:53|程序即将关闭=stop

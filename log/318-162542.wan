@@ -1,0 +1,13 @@
+     *晚星孤独,纵使消亡,也黯然无声.汐月高悬,纵使自由,也拘于亘古*
+
+[Info ] 16:25:42|读取配置文件=config_manage.config_read
+[Info ] 16:25:42|开启按键监听=__main__
+[Info ] 16:25:42|开始生成音乐文件路径=summon_music_path
+[Info ] 16:25:42|准备伪随机播放=for_songs.false_random_play
+[Info ] 16:25:42|开始生成伪随机播放列表=for_songs.false_random_play
+[Info ] 16:25:42|开始伪随机播放=for_songs.false_random_play
+[Info ] 16:25:42|加载音乐[F:\4-Musics\music\Somewhere Only We Know-gura.flac]=player.play
+[Info ] 16:25:43|计算本次播放时长为[0]=data_manage.get_time_e
+[Info ] 16:25:43|本次播放时长已记录
+[Info ] 16:25:43|音乐播放停止=stop
+[Info ] 16:25:43|程序即将关闭=stop
