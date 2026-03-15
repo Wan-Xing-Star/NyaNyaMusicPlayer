@@ -19,6 +19,7 @@ MusicList = None #播放列表管理类实例
 data_path = os.path.normpath(os.path.join(os.getcwd(),"data/")) #数据文件夹目录
 log_path = os.path.normpath(os.path.join(os.getcwd(),"log/"))
 message = None #播放器消息传递
+music_play_list = []
 
 class data_manage:
     #data1 =>歌名:(听歌次数,单歌时长
@@ -249,58 +250,8 @@ class days_change:
         for m in range(1, month):
             gura_day += self.get_month_days(year, m)
         # b) 加上目标月份的天数
-        gura_day += day_of_month
-        
+        gura_day += day_of_month     
         return gura_day
-
-    def gura_to_ad(self,gura_day):    
-        # 输入验证
-        if not isinstance(gura_day, int) or gura_day <= 0:
-            print("输入错误:天数必须是正整数")
-            return None
-        # 解析起始日期
-        start_year = int(self.start_day[0:4])
-        start_month = int(self.start_day[4:6])
-        self.start_day_of_month = int(self.start_day[6:8])
-        # 如果gura_day为1，直接返回起始日期
-        if gura_day == 1:
-            return f"{start_year:04d}-{start_month:02d}-{self.start_day_of_month:02d}"
-        # 计算剩余天数（减去起始日的1天）
-        remaining_days = gura_day - 1
-        # 当前年份和月份
-        current_year = start_year
-        current_month = start_month
-        current_day = self.start_day_of_month
-        # 第一步:处理起始月份的剩余天数
-        days_in_start_month = self.get_month_days(current_year, current_month)
-        remaining_in_month = days_in_start_month - current_day
-        # 情况1:仍在起始月份内
-        if remaining_days <= remaining_in_month:
-            current_day += remaining_days
-            return f"{current_year:04d}-{current_month:02d}-{current_day:02d}"
-        # 情况2:超出起始月份
-        remaining_days -= remaining_in_month
-        current_month += 1
-        # 如果月份超过12，进入下一年
-        if current_month > 12:
-            current_month = 1
-            current_year += 1
-        # 第二步:逐月累减天数
-        while remaining_days > 0:
-            days_in_current_month = self.get_month_days(current_year, current_month)
-            # 情况2.1:当前月可以容纳所有剩余天数
-            if remaining_days <= days_in_current_month:
-                current_day = remaining_days  # 当前月的第几天
-                return f"{current_year:04d}-{current_month:02d}-{current_day:02d}"
-            # 情况2.2:当前月无法容纳，减去整月天数，进入下个月
-            remaining_days -= days_in_current_month
-            current_month += 1    
-            # 处理月份和年份的进位
-            if current_month > 12:
-                current_month = 1
-                current_year += 1
-        # 理论上不会执行到这里，但为了安全返回
-        return f"{current_year:04d}-{current_month:02d}-{current_day:02d}"
 
 class logs:
     obj = None
@@ -554,13 +505,14 @@ class for_songs:
         self.true_random_play_again = 3
 
     def player(self) ->None:
+        global message,music_play_list
+        del(music_play_list)
         n = len(self.music_list)
         if n <= 0:
             log.write("播放列表未生成,拒绝调用=for_songs.player",1)
             stop()
         
         while running:
-            global message
             MusicPlayer.play(self.music_list[self.music])
             if message == "last":
                 log.write(f"收到切歌消息[message]=for_songs.player")
