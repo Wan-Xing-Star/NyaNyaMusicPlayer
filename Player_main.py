@@ -1,5 +1,5 @@
 #Python:3.13
-import os,sys,json,random,time
+import os,sys,json,random,time,threading
 import pygame #pip install pygame #2.6.1
 from pynput import keyboard #pip install pynput #1.8.1
 from mutagen import File #pip install mutagen #1.47.0
@@ -20,12 +20,13 @@ data_path = os.path.normpath(os.path.join(os.getcwd(),"data/")) #数据文件夹
 log_path = os.path.normpath(os.path.join(os.getcwd(),"log/"))
 message = None #播放器消息传递
 music_play_list = []
+Lock = threading.Lock()
 
 class data_manage:
     #data1 =>歌名:(听歌次数,单歌时长
     #data2 =>日,月,年听歌总时间
     obj = None
-    def __init__(self):
+    def __init__(self,cfg):
         if not os.path.exists(data_path):
             log.write("统计文件夹缺失,已创建=data_manage.__init__",2)
             os.makedirs(data_path,exist_ok=True)
@@ -49,16 +50,10 @@ class data_manage:
         self.get_start_time = False
         self.end_time = 0
         self.times = 0
-    
-    def __new__(cls):
-        """单例模式"""
-        if cls.obj is None:
-            cls.obj = super().__new__(cls)
-        return cls.obj
-    
-    def init(self):
-        """自定义初始化"""
-        log.write("初始化data_manage类=data_manage.init")
+        self.num = 0
+        self.n = 0
+        self.l = cfg["平衡播放限度"] if cfg["平衡播放限度"] >= 0 else 0
+
         self.read()
 
     def updata_2(self) -> None:
@@ -107,7 +102,13 @@ class data_manage:
         log.write("将[all]值更改=data_manage.get_time_e")
         self.data_2["all"] += self.times
 
-        self.today = time.strftime("%Y%m%d")
+        today = time.strftime("%Y%m%d")
+        if today != self.today:
+            log.write("跨日期保护触发")
+            self.today = today
+            self.end_write()
+            self.data_1 = {}
+            self.read()
 
         if f"{self.today[:4]}" not in self.data_2["year"].keys():
             log.write(f"未获取到年份键值,已创建[{self.today[:4]}]=data_manage.get_time_e",2)
@@ -125,17 +126,27 @@ class data_manage:
 
     def count(self,path: str) ->None:
         music_name = os.path.splitext(os.path.split(path)[1])[0]
+        music_info = (self.format_duration(File(path).info.length),File(path,easy=True).get('artist',['Unknown']))
+
         if music_name not in self.data_1:
-            self.data_1[music_name] = [0,(self.format_duration(File(path).info.length),File(path,easy=True).get('artist',['Unknown']))]
+            self.data_1[music_name] = [0,music_info]
             log.write(f"创建统计数据[{music_name}]在单日数据中=data_manage.count",2)
         self.data_1[music_name][0] += 1
         log.write(f"变更统计数据[{music_name}->{self.data_1[music_name]}]=data_manage.count")
 
         if music_name not in self.data_2["each_song"].keys():
             log.write(f"创建统计数据[{music_name}]在总数据中=data_manage.count",2)
-            self.data_2["each_song"][music_name] = [0,(self.format_duration(File(path).info.length),File(path,easy=True).get('artist',['Unknown']))]
+            self.data_2["each_song"][music_name] = [0,music_info]
+            self.n += 1
+
         self.data_2["each_song"][music_name][0] +=1
         log.write(f"变更统计数据[{music_name}->{self.data_2["each_song"][music_name]}]=data_manage.count")
+
+        if music_info != self.data_2["each_song"][music_name][1]:
+            self.data_1[music_name][1] = music_info
+            self.data_2[music_name][1] = music_info
+            log.write(f"歌曲[{music_name}]的艺术家已更新")
+        self.num += 1
 
     def read(self) ->None:
         """读取文件"""
@@ -165,6 +176,24 @@ class data_manage:
         with open(self.path_2,"w",encoding=self.encode) as file:
             log.write(f"写入文件[{self.path_2}]内容为[{self.data_2}]=data_manage.write")
             json.dump(self.data_2,file,indent=4,ensure_ascii=False)
+
+    def add_num(self,music: str) ->None:
+        music_name = os.path.splitext(os.path.split(music)[1])[0]
+        if music_name not in self.data_2["each_song"]:
+            return None
+        self.num += self.data_2["each_song"][music_name][0]
+
+    def set_n(self,n: int) ->None:
+        self.n = n
+    
+    def get_bool(self,music: str) ->bool:
+        music_name = os.path.splitext(os.path.split(music)[1])[0]
+        if music_name not in self.data_2["each_song"]:
+            return True
+        ave = self.num // self.n
+        if self.data_2["each_song"][music_name][0] > (ave + self.l):
+            return False
+        return True
 
 class days_change:
     start_day: str = "20250501"
@@ -297,8 +326,7 @@ class logs:
             lev = "[Panic]"
         t = time.strftime("%H:%M:%S")
         txt = f"{lev} {t}|{content}\n"
-        b_txt = txt.encode()
-        os.write(self.file,b_txt)
+        os.write(self.file,txt.encode())
 
     def del_old(self):
         log_list: list = os.listdir(log_path)
@@ -326,6 +354,9 @@ class config_manage(): #配置控制
         "随机播放": (True, False),  # (启用, 是否真随机)
         "定时播放": 0,  # 0 为无限，单位分钟
         "播完暂停": True,
+        "平衡播放": True,
+        "平衡播放限度": 1,
+        "伪随机可重复曲数": -1,
         "按键管理": {
             "暂停": "<ctrl>+<alt>+p",
             "退出": "<ctrl>+<alt>+s",
@@ -336,7 +367,7 @@ class config_manage(): #配置控制
             "单曲循环": "<ctrl>+<alt>+l",
         },
         "音量变化值": 0.05,
-        "音量初始值":1.0,
+        "音量初始值":0.8,
         "日志等级":3,
     }
 
@@ -420,8 +451,6 @@ class player:
             self.need_stop = True
 
     def play(self,path: str) ->None:
-        global now_play 
-        now_play = path
         try:
             log.write(f"加载音乐[{path}]=player.play",3)
             pygame.mixer.music.load(path)
@@ -488,10 +517,11 @@ class player:
 
     def change_song(self,song: str) -> None:
         """切换歌曲"""
-        global message
+        global message,Lock
         log.write(f"将切换歌曲[{song}]=player.change_song")
         self.stop = True
-        message = song
+        with Lock:
+            message = song
     
     def loop(self):
         global is_loop
@@ -502,10 +532,13 @@ class for_songs:
         log.write("初始化for_songs类=for_songs.__init__")
         self.music = 0
         self.music_list = []
+        self.true_list = []
         self.true_random_play_again = 3
+        self.balance_play = cfg["平衡播放"],
+        self.accept_same = cfg["伪随机可重复曲数"] if cfg["伪随机可重复曲数"] >= -1 else -1
 
     def player(self) ->None:
-        global message,music_play_list
+        global message,music_play_list,Lock
         del(music_play_list)
         n = len(self.music_list)
         if n <= 0:
@@ -513,18 +546,26 @@ class for_songs:
             stop()
         
         while running:
-            MusicPlayer.play(self.music_list[self.music])
-            if message == "last":
-                log.write(f"收到切歌消息[message]=for_songs.player")
-                self.music = (self.music-1) % n #递减环绕
-                message = None
-                continue
+            if self.balance_play:
+                if Data.get_bool(self.music_list[self.music]) or is_loop:
+                    MusicPlayer.play(self.music_list[self.music])
+                else:
+                    log.write(f"歌曲[{self.music_list[self.music]}]触发保护,跳过播放")
+            else:
+                MusicPlayer.play(self.music_list[self.music])
 
-            elif message == "next":
-                log.write(f"收到切歌消息[message]=for_songs.player")
-                self.music = (self.music+1) % n
-                message = None
-                continue
+            with Lock:
+                if message == "last":
+                    log.write(f"收到切歌消息[message]=for_songs.player")
+                    self.music = (self.music-1) % n #递减环绕
+                    message = None
+                    continue
+
+                elif message == "next":
+                    log.write(f"收到切歌消息[message]=for_songs.player")
+                    self.music = (self.music+1) % n
+                    message = None
+                    continue
 
             if is_loop:
                 continue
@@ -539,7 +580,7 @@ class for_songs:
         self.player()
 
     def true_random_play(self,music_path: list) ->None:
-        global message
+        global message,Lock
         log.write("开始真随机播放=for_songs.true_random_play",3)
         self.music_list = music_path
         n = len(self.music_list)
@@ -548,12 +589,13 @@ class for_songs:
         while running:
             log.write(f"选取接下来播放音乐索引为[{self.music}]=for_songs.true_random_play")
             MusicPlayer.play(self.music_list[self.music])
-            if message != None:
-                log.write(f"收到切歌消息[message]=for_songs.true_random_play")
-                message = None
-                if is_loop:
-                    self.music = random.randint(0,n-1)
-                    continue
+            with Lock:
+                if message != None:
+                    log.write(f"收到切歌消息[message]=for_songs.true_random_play")
+                    message = None
+                    if is_loop:
+                        self.music = random.randint(0,n-1)
+                        continue
             if is_loop:
                 continue
             self.music = random.randint(0,n-1)
@@ -563,9 +605,11 @@ class for_songs:
         n = len(music_path)
         music_set = set(range(n))
         again_play = random.randint(max(1, n//10), max(1, n//5))
+        if self.accept_same >= 0:
+            again_play = self.accept_same
         again_play_dict = {}
 
-        log.write(f"生成运行重复歌曲列表,歌曲数量为[{again_play}],可重复次数为[{self.true_random_play_again}]=for_songs.false_random_play")
+        log.write(f"生成可重复歌曲列表,歌曲数量为[{again_play}],可重复次数为[{self.true_random_play_again}]=for_songs.false_random_play")
         while len(again_play_dict) < again_play:
             nm = random.choice(music_path)
             if nm in again_play_dict:
@@ -637,7 +681,11 @@ def summon_music_path(main_paths: list) -> list:
             for name in file_names:
                 if os.path.splitext(name)[1].lower() in exts:
                     log.write(f"添加音乐文件[{name}]=summon_music_path")
-                    files.append(os.path.normpath(os.path.join(root, name)))
+                    mus = os.path.normpath(os.path.join(root, name))
+                    files.append(mus)
+                    Data.add_num(mus)
+    
+    Data.set_n(len(files))
     return files
 
 def create_hotkeys(config):
@@ -675,8 +723,7 @@ if 4 < _lever or _lever < 0:
     log.write("日志等级错误,拒绝更改=__main__",2)
 else:
     log.change_lever(_lever)
-Data = data_manage()
-Data.init()
+Data = data_manage(cfg=config)
 
 MusicPlayer = player(config)
 MusicList = for_songs(config)
