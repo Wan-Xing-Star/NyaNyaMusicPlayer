@@ -243,9 +243,10 @@ class logs:
     def del_old(self):
         log_list: list = os.listdir(log_path)
         files = [file_name for file_name in log_list if os.path.splitext(file_name)[1] == ".wan"]
-        
+        files.remove(f"{get_gura_day()}-{time.strftime('%H%M%S')}.wan")
         files.sort()
-        while len(files) >= 10:
+        
+        while len(files) > 10:
             log_wan = files[0]
             os.remove(os.path.normpath(os.path.join(log_path,log_wan)))
             files.remove(log_wan)
