@@ -13,7 +13,6 @@ listener = None #按键监听
 Configer = None #配置类实例
 MusicPlayer = None #播放类实例
 log = None #日志类实例
-Days = None #日期转换实例
 Data = None #数据统计类实例
 MusicList = None #播放列表管理类实例
 data_path = os.path.normpath(os.path.join(os.getcwd(),"data/")) #数据文件夹目录
@@ -41,7 +40,7 @@ class data_manage:
             }
         self.data_2_read = {}
         self.today = time.strftime("%Y%m%d")
-        self.today_gura = Days.ad_to_gura(self.today)
+        self.today_gura = get_gura_day()
         self.file_name_1 = f"{self.today_gura}.json"
         self.file_name_2 = "main.json"
         self.path_1 = os.path.join(data_path,self.file_name_1)
@@ -126,7 +125,7 @@ class data_manage:
 
     def count(self,path: str) ->None:
         music_name = os.path.splitext(os.path.split(path)[1])[0]
-        music_info = (self.format_duration(File(path).info.length),File(path,easy=True).get('artist',['Unknown']))
+        music_info: tuple[str,list] = (self.format_duration(File(path).info.length),File(path,easy=True).get('artist',['Unknown']))
 
         if music_name not in self.data_1:
             self.data_1[music_name] = [0,music_info]
@@ -144,7 +143,7 @@ class data_manage:
 
         if music_info != self.data_2["each_song"][music_name][1]:
             self.data_1[music_name][1] = music_info
-            self.data_2[music_name][1] = music_info
+            self.data_2["each_song"][music_name][1] = music_info
             log.write(f"歌曲[{music_name}]的艺术家已更新")
         self.num += 1
 
@@ -195,93 +194,6 @@ class data_manage:
             return False
         return True
 
-class days_change:
-    start_day: str = "20250501"
-
-    def get_month_days(self,year, month):
-        """获取指定年份和月份的天数，考虑闰年"""
-        if month == 2:
-            # 闰年判断
-            if (year % 4 == 0 and year % 100 != 0) or (year % 400 == 0):
-                return 29
-            else:
-                return 28
-        elif month in [1, 3, 5, 7, 8, 10, 12]:
-            return 31
-        else:
-            return 30
-
-    def ad_to_gura(self,day):
-        # 输入验证
-        if len(day) != 8 or not day.isdigit():
-            print("输入日期错误:日期格式应为YYYYMMDD")
-            return 0 
-        # 解析起始日期
-        start_year = int(self.start_day[0:4])
-        start_month = int(self.start_day[4:6])
-        self.start_day_of_month = int(self.start_day[6:8]) 
-        # 解析目标日期
-        year = int(day[0:4])
-        month = int(day[4:6])
-        day_of_month = int(day[6:8])    
-        # 验证日期有效性
-        if not 1 <= month <= 12 or not 1 <= day_of_month <= 31:
-            print("输入日期错误:月份或日期无效")
-            return 0
-        # 进一步验证日期的实际有效性
-        max_day = self.get_month_days(year, month)
-        if day_of_month > max_day:
-            print(f"输入日期错误:{year}年{month}月最多有{max_day}天")
-            return 0  
-        # 检查日期是否早于起始日期
-        if (year < start_year or 
-            (year == start_year and month < start_month) or 
-            (year == start_year and month == start_month and day_of_month < self.start_day_of_month)):
-            print("输入日期早于起始日期")
-            return 0
-        # 如果是同一天，直接返回1（第1天）
-        if year == start_year and month == start_month and day_of_month == self.start_day_of_month:
-            return 1      
-        gura_day: int = 0
-        
-        # 情况1:同一年份
-        if year == start_year:
-            # 情况1.1:同一个月
-            if month == start_month:
-                return day_of_month - self.start_day_of_month + 1           
-            # 情况1.2:不同月份
-            # 1) 先加上起始月份剩余的天数
-            gura_day = self.get_month_days(start_year, start_month) - self.start_day_of_month + 1       
-            # 2) 加上中间完整月份的天数
-            for m in range(start_month + 1, month):
-                gura_day += self.get_month_days(start_year, m)
-            # 3) 加上目标月份的天数
-            gura_day += day_of_month
-            
-            return gura_day      
-        # 情况2:不同年份
-        # 先计算起始年份剩余的天数
-        # 1) 起始月份剩余的天数
-        gura_day = self.get_month_days(start_year, start_month) - self.start_day_of_month + 1      
-        # 2) 起始年份剩余月份的天数
-        for m in range(start_month + 1, 13):
-            gura_day += self.get_month_days(start_year, m)   
-        # 3) 计算中间完整年份的天数（如果有）
-        # 注意:这里是从 start_year+1 到 year-1，不包括year本身
-        for y in range(start_year + 1, year):
-            # 判断闰年
-            if (y % 4 == 0 and y % 100 != 0) or (y % 400 == 0):
-                gura_day += 366
-            else:
-                gura_day += 365  
-        # 4) 计算目标年份的天数
-        # a) 目标年份目标月份前的完整月份
-        for m in range(1, month):
-            gura_day += self.get_month_days(year, m)
-        # b) 加上目标月份的天数
-        gura_day += day_of_month     
-        return gura_day
-
 class logs:
     obj = None
     def __new__(cls):
@@ -300,7 +212,7 @@ class logs:
         if not os.path.exists(log_path):
             os.makedirs(log_path,exist_ok=True)
 
-        file_path = os.path.normpath(os.path.join(log_path,f"{Days.ad_to_gura(time.strftime('%Y%m%d'))}-{time.strftime('%H%M%S')}.wan"))
+        file_path = os.path.normpath(os.path.join(log_path,f"{get_gura_day()}-{time.strftime('%H%M%S')}.wan"))
         self.file = os.open(file_path,os.O_WRONLY | os.O_CREAT)
         os.write(self.file,"     *Thank You For Your Use*\n\n".encode())
         self.write_lever = levers
@@ -636,6 +548,12 @@ class for_songs:
         self.player()
 
 
+def get_gura_day() -> str:
+    day_start = time.mktime(time.strptime("20250501","%Y%m%d"))
+    day_today = time.mktime(time.strptime(time.strftime("%Y%m%d"),"%Y%m%d"))
+    duration = (day_today - day_start) // (24*60*60)
+    return int(duration)
+
 def pause() ->None: #暂停
     global is_pause
     log.write(f"暂停函数被调用,当前状态[{is_pause}]=pause",3)
@@ -713,7 +631,6 @@ def create_hotkeys(config):
     log.write(f"返回监听字典[{_dict}]=create_hotkeys")
     return _dict
 
-Days = days_change()
 log = logs()
 log.init(3)
 Configer = config_manage()
