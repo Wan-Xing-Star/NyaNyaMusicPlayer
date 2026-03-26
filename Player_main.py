@@ -1,25 +1,143 @@
 #Python:3.13
-import os,sys,json,random,time,threading
+import os,sys,json,random,time,threading,sqlite3
+from typing import Any
 import pygame #pip install pygame #2.6.1
 from pynput import keyboard #pip install pynput #1.8.1
-from mutagen import File #pip install mutagen #1.47.0
+from mutagen._file import File #pip install mutagen #1.47.0
 
 pygame.mixer.init() #初始化音乐播放器
 
 is_pause = False
 is_loop = False
 running = True
-listener = None #按键监听
-Configer = None #配置类实例
-MusicPlayer = None #播放类实例
-log = None #日志类实例
-Data = None #数据统计类实例
-MusicList = None #播放列表管理类实例
 data_path = os.path.normpath(os.path.join(os.getcwd(),"data/")) #数据文件夹目录
 log_path = os.path.normpath(os.path.join(os.getcwd(),"log/"))
-message = None #播放器消息传递
 music_play_list = []
 Lock = threading.Lock()
+
+
+class DataManage:
+    def __init__(self) -> None:
+        self.times = 0
+        self.start_time = 0
+        self.is_useful = False #判断时间的有效性
+        self.is_ok = True # 判断是否记录数据
+        self.today = time.strftime("%Y%m%d")
+        self.encode = "utf-8"
+        self.main_data= {
+            "all":0,
+            "year":{},
+            "month":{},
+            }
+        self.day_data = {
+            "all":0,
+            "song":{}
+            }
+        self.db = sqlite3.connect("./data/main.db")
+        self.cursor = self.db.cursor()
+        self.cursor.execute(    #初始化与创建表
+        '''
+        CREATE TABLE IF NOT EXISTS songs (
+            SongName TEXT PRIMARY KEY,
+            Duration INTEGER NOT NULL,
+            Artists TEXT,
+            PlayCount INTEGER,
+            LoopCount INTEGER,
+            FirstPlay INTEGER,
+            LastPlay INTEGER
+        )
+        '''
+        )
+        self.db.commit()
+
+        self.read()
+    
+    def get_start_time(self) ->None:
+        if not self.is_ok:
+            return None
+        self.start_time = time.time()
+        self.is_useful = True
+    
+    def get_end_time(self) ->None:
+        if not self.is_ok:
+            return None
+        
+        if not self.is_useful:
+            log.write("未获取开始时间,无法记录结束时间",2)
+            return None
+        
+        t = time.time()
+        today = time.strftime("%Y%m%d")
+        duration = int(t - self.start_time)
+        log.write(f"本次记录播放时长为[{duration}]")
+        self.times += duration
+
+        if self.today == today: # 如果是同日
+            return None
+        # 跨日期
+        self.write(day_change=True)
+        self.read()
+    
+    def read(self) ->None:            
+        """读取文件"""
+        try:
+            with open("/data/main.json","r",encoding=self.encode) as f:
+                self.main_data = json.load(f)
+                log.write("读取数据[main.json]")
+        except FileNotFoundError:
+            log.write("数据文件[main.json]不存在,将创建",2)
+        except Exception as e:
+            log.write(f"处理[main.json]时发生未知错误[{e}],数据记录功能关闭",1)
+            self.is_ok = False
+
+            
+        try:
+            with open(f"/data/{get_gura_day()}.json","r",encoding=self.encode) as f:
+                self.day_data = json.load(f)
+                log.write(f"读取数据[{get_gura_day()}.json]=data_manage.open")
+        except FileNotFoundError:
+            log.write(f"数据文件[{get_gura_day()}.json]不存在,将创建=data_manage.open",2)
+            pass
+        except Exception as e:
+            log.write(f"处理[{get_gura_day()}.json]时发生未知错误[{e}],数据记录功能关闭",1)
+            self.is_ok = False
+    
+    def write(self,day_change: bool = False) -> None:
+        """最后写入"""
+        if not self.is_ok:
+            return None # 如果程序未能记录数据
+        
+        if day_change:  # 跨日期
+            gura_day = get_gura_day() -1
+            today = self.today  # 此时不更新self.today
+            self.today = time.strftime("%Y%m%d")    # 更新self.today
+
+        self.day_data["all"] += self.times
+        self.main_data["all"] += self.times
+
+        if not self.main_data["year"][today[:4]]:   #如果当前数据不存在
+            self.main_data["year"][today[:4]] = 0
+        self.main_data["year"][today[:4]] += self.times
+
+        if not self.main_data["year"][today[:6]]:
+            self.main_data["year"][today[:6]] = 0
+        self.main_data["month"][today[:6]] += self.times
+
+
+        with open("./data/main.json","w",encoding=self.encode) as file:
+            log.write(f"写入文件[main.json]内容为[{self.main_data}]=data_manage.write")
+            json.dump(self.main_data,file,indent=4,ensure_ascii=False)
+        
+        with open(f"./data/{gura_day}.json","w",encoding=self.encode) as file:
+            log.write(f"写入文件[{gura_day}.json]内容为[{self.day_data}]=data_manage.write")
+            json.dump(self.day_data,file,indent=4,ensure_ascii=False)
+    
+    def close(self) ->None:
+        """关闭数据统计"""
+        self.write()
+        self.cursor.close()
+        self.db.close()
+        
 
 class data_manage:
     #data1 =>歌名:(听歌次数,单歌时长
@@ -125,7 +243,15 @@ class data_manage:
 
     def count(self,path: str) ->None:
         music_name = os.path.splitext(os.path.split(path)[1])[0]
-        music_info: tuple[str,list] = (self.format_duration(File(path).info.length),File(path,easy=True).get('artist',['Unknown']))
+        audio = File(path, easy=True)
+        if audio is None:
+            log.write(f"记录文件[{music_name}]时出现严重错误,程序将退出",1)
+            stop()
+        else:
+            duration = self.format_duration(audio.info.length)
+            artist = audio.get('artist', ['Unknown'])
+
+        music_info: tuple[str, list] = (duration, artist)
 
         if music_name not in self.data_1:
             self.data_1[music_name] = [0,music_info]
@@ -204,6 +330,7 @@ class logs:
     
     def __init__(self):
         self.already_init = False
+        self.levers = {4:"[Debug]",3:"[Info ]",2:"[Warn ]",1:"[Error]",0:"[Panic]"}
 
     def init(self,levers: int =4) ->None:
         """初始化日志"""
@@ -226,16 +353,7 @@ class logs:
             return None
         if self.write_lever < lever:
             return None
-        if lever == 4:
-            lev = "[Debug]"
-        elif lever == 3:
-            lev = "[Info ]"
-        elif lever == 2:
-            lev = "[Warn ]"
-        elif lever == 1:
-            lev = "[Error]"
-        elif lever == 0:
-            lev = "[Panic]"
+        lev = self.levers.get(lever,"[Debug]")
         t = time.strftime("%H:%M:%S")
         txt = f"{lev} {t}|{content}\n"
         os.write(self.file,txt.encode())
@@ -245,14 +363,14 @@ class logs:
         files = [file_name for file_name in log_list if os.path.splitext(file_name)[1] == ".wan"]
         files.remove(f"{get_gura_day()}-{time.strftime('%H%M%S')}.wan")
         files.sort()
-        
+
         while len(files) > 10:
             log_wan = files[0]
             os.remove(os.path.normpath(os.path.join(log_path,log_wan)))
             files.remove(log_wan)
 
     def change_lever(self,lev: int) ->None:
-        self.write_lever = lev
+        self.write_lever = lev if 0<= lev <= 4 else 4
 
     def close(self) ->None:
         """关闭日志"""
@@ -300,11 +418,11 @@ class config_manage(): #配置控制
         try:
             with open("config.json",'r',encoding='utf-8') as file:
                 self.data = json.load(file)
+                self.data = self.updata(self.data)
         except FileNotFoundError: # 处理文件不存在的情况
             log.write("配置文件不存在,尝试创建=config_manage.config_read",2)
             self.write(self.data) 
-
-        self.data = self.updata(self.data)            
+            
         return self.data
     
     @classmethod
@@ -332,9 +450,12 @@ class config_manage(): #配置控制
         
         return read_data
 
-    def change(self,config_name: str, config_set: any) ->None:
+    def change(self,config_name: str, config_set: Any) ->None:
         """修改配置"""
         log.write(f"修改配置项[{config_name}]值为[{config_set}]=config_manage.change",3)
+        if config_name not in config_manage.data:
+            log.write(f"未知配置项[{config_name}]试图修改,已拒绝",2)
+            return None
         self.data[config_name] = config_set
         self.write(self.data)
 
@@ -549,7 +670,7 @@ class for_songs:
         self.player()
 
 
-def get_gura_day() -> str:
+def get_gura_day() -> int:
     day_start = time.mktime(time.strptime("20250501","%Y%m%d"))
     day_today = time.mktime(time.strptime(time.strftime("%Y%m%d"),"%Y%m%d"))
     duration = (day_today - day_start) // (24*60*60)
