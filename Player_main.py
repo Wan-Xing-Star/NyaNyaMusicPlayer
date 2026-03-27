@@ -14,16 +14,25 @@ data_path = os.path.normpath(os.path.join(os.getcwd(),"data/")) #数据文件夹
 log_path = os.path.normpath(os.path.join(os.getcwd(),"log/"))
 music_play_list = []
 Lock = threading.Lock()
+message = None
 
 
 class DataManage:
-    def __init__(self) -> None:
+    def __init__(self,cfg: dict) -> None:
+        if not os.path.exists(data_path):
+            os.makedirs(data_path,exist_ok=True)
+
         self.times = 0
         self.start_time = 0
         self.is_useful = False #判断时间的有效性
         self.is_ok = True # 判断是否记录数据
         self.today = time.strftime("%Y%m%d")
         self.encode = "utf-8"
+        self.all_song = 0
+        self.all_song_play_count = 0
+        self.is_balance = cfg["平衡播放"]
+        self.is_loop_balance = cfg["循环播放不计入平衡播放"]
+        self.balance_limit = cfg["平衡播放限度"]
         self.main_data= {
             "all":0,
             "year":{},
@@ -33,7 +42,11 @@ class DataManage:
             "all":0,
             "song":{}
             }
-        self.db = sqlite3.connect("./data/main.db")
+        try:
+            self.db = sqlite3.connect("./data/main.db")
+        except Exception as e:
+            log.write(f"在连接数据库时发生未知错误[{e}]")
+            self.is_ok = False
         self.cursor = self.db.cursor()
         self.cursor.execute(    #初始化与创建表
         '''
@@ -51,7 +64,115 @@ class DataManage:
         self.db.commit()
 
         self.read()
+
+    def set_n(self,n: int) -> None:
+        """设置歌曲总数"""
+        if not self.is_ok:
+            return None
+        self.all_song = n
+        log.write(f"设置歌曲总数为[{n}]=DataManage.set_n",3)
+
+    def add_num(self,song_name: str) -> None:
+        """为新歌曲添加数据"""
+        if not self.is_ok:
+            return None
+        song_info = self.get_song(song_name)
+        self.all_song_play_count += 0 if song_info is None else song_info["PlayCount"]
+        log.write(f"为歌曲[{song_name}]添加数据=DataManage.add_num",3)
+        if self.is_loop_balance:
+            self.all_song_play_count -= 0 if song_info is None else song_info["LoopCount"]
     
+    def balance_play(self,song_name: str) -> bool:
+        """判断歌曲是否可以播放（未触发平衡播放保护）"""
+        if not self.is_ok:
+            return True
+        if self.all_song == 0:
+            log.write("歌曲总数为0,无法执行平衡播放保护=DataManage.balance_play",2)
+            return True
+        song_info = self.get_song(song_name)
+        if song_info is None:
+            log.write(f"歌曲[{song_name}]数据未找到,无法执行平衡播放保护=DataManage.balance_play",2)
+            song_infos = File(song_name)
+            self.add_song(song_name, song_infos.info.length if song_infos and song_infos.info else 0, song_infos.tags.get("TPE1", ["Unknown"]) if song_infos and song_infos.tags else ["Unknown"])
+            return True
+        
+        play_count = song_info["PlayCount"] - (song_info["LoopCount"] if self.is_loop_balance else 0)
+        average_play = self.all_song_play_count / self.all_song
+        log.write(f"歌曲[{song_name}]播放次数为[{play_count}],平均播放次数为[{average_play}]=DataManage.balance_play")
+        
+        if average_play + self.balance_limit >= play_count >= average_play - self.balance_limit:
+            log.write(f"歌曲[{song_name}]在平衡范围内,允许播放=DataManage.balance_play",3)
+            return True
+        else:
+            log.write(f"歌曲[{song_name}]触发平衡播放保护,不允许播放=DataManage.balance_play",3)
+            return False
+
+    def get_song(self, song_name: str) ->dict | None:
+        """
+        读取指定song的所有数据，返回该song行的所有字段内容。
+        :param song_name: 歌曲名
+        :return: dict 或 None（未找到时）
+        """
+        if not self.is_ok:
+            return None
+        try:
+            self.cursor.execute("SELECT * FROM songs WHERE SongName = ?", (song_name,))
+            self.db.commit()
+            row = self.cursor.fetchone()
+            if row:
+                columns = [desc[0] for desc in self.cursor.description]
+                return dict(zip(columns, row))
+            else:
+                return None
+        except Exception as e:
+            log.write(f"读取歌曲[{song_name}]数据时发生错误: {e}", 1)
+            return None
+        
+    def add_song(self, song_name: str, duration: int, artists: list) -> None:
+        """
+        添加新song数据到数据库。
+        :param song_name: 歌曲名
+        :param duration: 歌曲时长（秒）
+        :param artists: 艺术家列表字符串
+        """
+        if not self.is_ok:
+            return None
+        try:
+            artist = ";".join(artists)  # 将艺术家列表转换为字符串
+            self.cursor.execute(
+                "INSERT INTO songs (SongName, Duration, Artists, PlayCount, LoopCount, FirstPlay, LastPlay) VALUES (?, ?, ?, 0, 0, ?, ?)",
+                (song_name, duration, artist, int(time.time()), int(time.time()))
+            )
+            self.db.commit()
+            log.write(f"添加歌曲[{song_name}]到数据库=DataManage.add_song", 3)
+        except Exception as e:
+            log.write(f"添加歌曲[{song_name}]数据时发生错误: {e}", 1)
+
+    def count_song(self, song_name: str) -> None:
+        """
+        更新song的播放数据（PlayCount、LastPlay、LoopCount）。
+        :param song_name: 歌曲名
+        """
+        global is_loop
+        if not self.is_ok:
+            return None
+        try:
+            song_data = self.get_song(song_name)
+            if song_data:
+                new_play_count = song_data["PlayCount"] + 1
+                new_last_play = int(time.time())
+                new_loop_count = song_data["LoopCount"] + 1 if is_loop else song_data["LoopCount"]
+                self.cursor.execute(
+                    "UPDATE songs SET PlayCount = ?, LastPlay = ?, LoopCount = ? WHERE SongName = ?",
+                    (new_play_count, new_last_play, new_loop_count, song_name)
+                )
+                self.db.commit()
+                log.write(f"更新歌曲[{song_name}]播放数据=DataManage.count_song", 3)
+            else:
+                log.write(f"歌曲[{song_name}]未找到，无法更新播放数据=DataManage.count_song", 2)
+        except Exception as e:
+            log.write(f"更新歌曲[{song_name}]播放数据时发生错误: {e}", 1)
+
     def get_start_time(self) ->None:
         if not self.is_ok:
             return None
@@ -81,7 +202,8 @@ class DataManage:
     def read(self) ->None:            
         """读取文件"""
         try:
-            with open("/data/main.json","r",encoding=self.encode) as f:
+            main_file_path = os.path.normpath(os.path.join(data_path,"main.json"))
+            with open(main_file_path,"r",encoding=self.encode) as f:
                 self.main_data = json.load(f)
                 log.write("读取数据[main.json]")
         except FileNotFoundError:
@@ -92,7 +214,8 @@ class DataManage:
 
             
         try:
-            with open(f"/data/{get_gura_day()}.json","r",encoding=self.encode) as f:
+            day_file_path = os.path.normpath(os.path.join(data_path,f"{get_gura_day()}.json"))
+            with open(day_file_path,"r",encoding=self.encode) as f:
                 self.day_data = json.load(f)
                 log.write(f"读取数据[{get_gura_day()}.json]=data_manage.open")
         except FileNotFoundError:
@@ -107,218 +230,40 @@ class DataManage:
         if not self.is_ok:
             return None # 如果程序未能记录数据
         
+        today = self.today  # 保存当前today值
         if day_change:  # 跨日期
             gura_day = get_gura_day() -1
-            today = self.today  # 此时不更新self.today
             self.today = time.strftime("%Y%m%d")    # 更新self.today
+        else:
+            gura_day = get_gura_day()
 
         self.day_data["all"] += self.times
         self.main_data["all"] += self.times
 
-        if not self.main_data["year"][today[:4]]:   #如果当前数据不存在
+        if today[:4] not in self.main_data["year"]:   #如果当前数据不存在
             self.main_data["year"][today[:4]] = 0
         self.main_data["year"][today[:4]] += self.times
 
-        if not self.main_data["year"][today[:6]]:
-            self.main_data["year"][today[:6]] = 0
+        if today[:6] not in self.main_data["month"]:
+            self.main_data["month"][today[:6]] = 0
         self.main_data["month"][today[:6]] += self.times
 
-
-        with open("./data/main.json","w",encoding=self.encode) as file:
+        main_file_path = os.path.normpath(os.path.join(data_path,"main.json"))
+        with open(main_file_path,"w",encoding=self.encode) as file:
             log.write(f"写入文件[main.json]内容为[{self.main_data}]=data_manage.write")
             json.dump(self.main_data,file,indent=4,ensure_ascii=False)
         
-        with open(f"./data/{gura_day}.json","w",encoding=self.encode) as file:
+        day_file_path = os.path.normpath(os.path.join(data_path,f"{gura_day}.json"))
+        with open(day_file_path,"w",encoding=self.encode) as file:
             log.write(f"写入文件[{gura_day}.json]内容为[{self.day_data}]=data_manage.write")
             json.dump(self.day_data,file,indent=4,ensure_ascii=False)
     
     def close(self) ->None:
         """关闭数据统计"""
         self.write()
+        self.db.commit()
         self.cursor.close()
         self.db.close()
-        
-
-class data_manage:
-    #data1 =>歌名:(听歌次数,单歌时长
-    #data2 =>日,月,年听歌总时间
-    obj = None
-    def __init__(self,cfg):
-        if not os.path.exists(data_path):
-            log.write("统计文件夹缺失,已创建=data_manage.__init__",2)
-            os.makedirs(data_path,exist_ok=True)
-        
-        self.encode = 'utf-8'
-        self.data_1 = {}
-        self.data_2 = {
-            "all":0,
-            "year":{},
-            "month":{},
-            "each_song":{}
-            }
-        self.data_2_read = {}
-        self.today = time.strftime("%Y%m%d")
-        self.today_gura = get_gura_day()
-        self.file_name_1 = f"{self.today_gura}.json"
-        self.file_name_2 = "main.json"
-        self.path_1 = os.path.join(data_path,self.file_name_1)
-        self.path_2 = os.path.join(data_path,self.file_name_2)
-        self.start_time = 0
-        self.get_start_time = False
-        self.end_time = 0
-        self.times = 0
-        self.num = 0
-        self.n = 0
-        self.l = cfg["平衡播放限度"] if cfg["平衡播放限度"] >= 0 else 0
-
-        self.read()
-
-    def updata_2(self) -> None:
-        for i in self.data_2.keys():
-            log.write(f"正在检查[{i}]项=data_manage.updata_2")
-            if i in self.data_2_read:
-                continue
-            log.write(f"[{i}]项不存在,已添加=data_manage.updata_2",2)
-            self.data_2_read[i] = self.data_2[i]
-        
-        self.data_2 = self.data_2_read
-
-    def format_duration(self,seconds):
-        """
-        将秒转换为 HH:MM:SS 或 MM:SS 格式
-        """
-        total_seconds = int(seconds)
-        
-        hours = total_seconds // 3600
-        minutes = (total_seconds % 3600) // 60
-        secs = total_seconds % 60
-        
-        log.write(f"将[{seconds}]秒转换成[{hours:02d}:{minutes:02d}:{secs:02d}]格式化时间=data_manage.formate_duration")
-        if hours > 0:
-            return f"{hours:02d}:{minutes:02d}:{secs:02d}"
-        else:
-            return f"{minutes:02d}:{secs:02d}"
-
-    def get_time_s(self) ->None:
-        """获取开始时间"""
-        self.start_time = time.time()
-        log.write(f"获取开始记录时间[{self.start_time}]=data_manage.get_time_s")
-        self.get_start_time = True
-    
-    def get_time_e(self) ->None:
-        """获取结束时间"""
-        self.end_time = time.time()
-        log.write(f"获取结束记录时间[{self.end_time}]=data_manage.get_time_e")
-        if self.get_start_time == False:
-            log.write("未获取到开始时间,无法计算,已跳过=data_manage.get_time_e",2)
-            return None
-        duration = (self.end_time - self.start_time)
-        self.times = int(duration)
-        log.write(f"计算本次播放时长为[{self.times}]=data_manage.get_time_e",3)
-
-        log.write("将[all]值更改=data_manage.get_time_e")
-        self.data_2["all"] += self.times
-
-        today = time.strftime("%Y%m%d")
-        if today != self.today:
-            log.write("跨日期保护触发")
-            self.today = today
-            self.end_write()
-            self.data_1 = {}
-            self.read()
-
-        if f"{self.today[:4]}" not in self.data_2["year"].keys():
-            log.write(f"未获取到年份键值,已创建[{self.today[:4]}]=data_manage.get_time_e",2)
-            self.data_2["year"][f"{self.today[:4]}"] = 0
-        log.write(f"将[{self.today[:4]}]值更改=data_manage.get_time_e")
-        self.data_2["year"][f"{self.today[:4]}"] += self.times
-
-        if f"{self.today[:6]}" not in self.data_2["month"].keys():
-            log.write(f"未获取到月份键值,已创建[{self.today[:6]}]=data_manage.get_time_e",2)
-            self.data_2["month"][f"{self.today[:6]}"] = 0
-        log.write(f"将[{self.today[:6]}]值更改=data_manage.get_time_e")
-        self.data_2["month"][f"{self.today[:6]}"] += self.times
-        self.get_start_time = False
-        log.write("本次播放时长已记录",3)
-
-    def count(self,path: str) ->None:
-        music_name = os.path.splitext(os.path.split(path)[1])[0]
-        audio = File(path, easy=True)
-        if audio is None:
-            log.write(f"记录文件[{music_name}]时出现严重错误,程序将退出",1)
-            stop()
-        else:
-            duration = self.format_duration(audio.info.length)
-            artist = audio.get('artist', ['Unknown'])
-
-        music_info: tuple[str, list] = (duration, artist)
-
-        if music_name not in self.data_1:
-            self.data_1[music_name] = [0,music_info]
-            log.write(f"创建统计数据[{music_name}]在单日数据中=data_manage.count",2)
-        self.data_1[music_name][0] += 1
-        log.write(f"变更统计数据[{music_name}->{self.data_1[music_name]}]=data_manage.count")
-
-        if music_name not in self.data_2["each_song"].keys():
-            log.write(f"创建统计数据[{music_name}]在总数据中=data_manage.count",2)
-            self.data_2["each_song"][music_name] = [0,music_info]
-            self.n += 1
-
-        self.data_2["each_song"][music_name][0] +=1
-        log.write(f"变更统计数据[{music_name}->{self.data_2["each_song"][music_name]}]=data_manage.count")
-
-        if music_info != self.data_2["each_song"][music_name][1]:
-            self.data_1[music_name][1] = music_info
-            self.data_2["each_song"][music_name][1] = music_info
-            log.write(f"歌曲[{music_name}]的艺术家已更新")
-        self.num += 1
-
-    def read(self) ->None:
-        """读取文件"""
-        try:
-            with open(self.path_1,"r",encoding=self.encode) as f:
-                self.data_1 = json.load(f)
-                log.write(f"读取数据[{self.data_1}]=data_manage.open")
-        except FileNotFoundError:
-            log.write(f"数据文件[{self.path_1}]不存在,将创建=data_manage.open",2)
-            pass
-            
-        try:
-            with open(self.path_2,"r",encoding=self.encode) as f:
-                self.data_2_read = json.load(f)
-                log.write(f"读取数据[{self.data_2_read}]=data_manage.open")
-                self.updata_2()
-        except FileNotFoundError:
-            log.write(f"数据文件[{self.path_2}]不存在,将创建=data_manage.open",2)
-            pass
-
-    def end_write(self) ->None:
-        """最后写入"""
-        with open(self.path_1,"w",encoding=self.encode) as file:
-            log.write(f"写入文件[{self.path_1}]内容为[{self.data_1}]=data_manage.write")
-            json.dump(self.data_1,file,indent=4,ensure_ascii=False)
-        
-        with open(self.path_2,"w",encoding=self.encode) as file:
-            log.write(f"写入文件[{self.path_2}]内容为[{self.data_2}]=data_manage.write")
-            json.dump(self.data_2,file,indent=4,ensure_ascii=False)
-
-    def add_num(self,music: str) ->None:
-        music_name = os.path.splitext(os.path.split(music)[1])[0]
-        if music_name not in self.data_2["each_song"]:
-            return None
-        self.num += self.data_2["each_song"][music_name][0]
-
-    def set_n(self,n: int) ->None:
-        self.n = n
-    
-    def get_bool(self,music: str) ->bool:
-        music_name = os.path.splitext(os.path.split(music)[1])[0]
-        if music_name not in self.data_2["each_song"]:
-            return True
-        ave = self.num // self.n
-        if self.data_2["each_song"][music_name][0] > (ave + self.l):
-            return False
-        return True
 
 class logs:
     obj = None
@@ -359,15 +304,20 @@ class logs:
         os.write(self.file,txt.encode())
 
     def del_old(self):
-        log_list: list = os.listdir(log_path)
-        files = [file_name for file_name in log_list if os.path.splitext(file_name)[1] == ".wan"]
-        files.remove(f"{get_gura_day()}-{time.strftime('%H%M%S')}.wan")
-        files.sort()
+        try:
+            log_list: list = os.listdir(log_path)
+            files = [file_name for file_name in log_list if os.path.splitext(file_name)[1] == ".wan"]
+            current_log_name = f"{get_gura_day()}-{time.strftime('%H%M%S')}.wan"
+            if current_log_name in files:
+                files.remove(current_log_name)
+            files.sort()
 
-        while len(files) > 10:
-            log_wan = files[0]
-            os.remove(os.path.normpath(os.path.join(log_path,log_wan)))
-            files.remove(log_wan)
+            while len(files) > 10:
+                log_wan = files[0]
+                os.remove(os.path.normpath(os.path.join(log_path,log_wan)))
+                files.remove(log_wan)
+        except Exception as e:
+            self.write(f"清理日志文件时发生错误: {e}",2)
 
     def change_lever(self,lev: int) ->None:
         self.write_lever = lev if 0<= lev <= 4 else 4
@@ -387,6 +337,7 @@ class config_manage(): #配置控制
         "播完暂停": True,
         "平衡播放": True,
         "平衡播放限度": 1,
+        "循环播放不计入平衡播放": True,
         "伪随机可重复曲数": -1,
         "按键管理": {
             "暂停": "<ctrl>+<alt>+p",
@@ -488,9 +439,9 @@ class player:
         try:
             log.write(f"加载音乐[{path}]=player.play",3)
             pygame.mixer.music.load(path)
-            Data.get_time_s()
+            Data.get_start_time()
             pygame.mixer.music.play(loops=0)
-        except pygame.error as e:
+        except pygame.error:
             log.write(f"加载[{path}]时失败=player.play",1)
             return None
         if self.fist_play == True:
@@ -507,18 +458,18 @@ class player:
         while running and (pygame.mixer.music.get_busy() or self.__music_pause):
             if is_pause and not self.__music_pause:  #暂停
                 log.write("暂停播放=player.play",3)
-                Data.get_time_e()
+                Data.get_end_time()
                 pygame.mixer.music.pause()
                 self.__music_pause = True
             
             elif not is_pause and self.__music_pause:  #继续
                 log.write("继续播放=player.play",3)
                 pygame.mixer.music.unpause()
-                Data.get_time_s()
+                Data.get_start_time()
                 self.__music_pause = False
             
             if self.stop == True:
-                Data.get_time_e()
+                Data.get_end_time()
                 pygame.mixer.music.pause()
                 pygame.mixer.music.unload()
                 self.stop = False
@@ -538,9 +489,9 @@ class player:
             time.sleep(0.1)
 
         if running:
-            Data.get_time_e()
+            Data.get_end_time()
             log.write(f"记录歌曲[{path}]播放次数=player.play")
-            Data.count(path)
+            Data.count_song(path)
 
     def volume_change(self,setting: str) ->None:
         """调节音量"""
@@ -581,7 +532,7 @@ class for_songs:
         
         while running:
             if self.balance_play:
-                if Data.get_bool(self.music_list[self.music]) or is_loop:
+                if Data.balance_play(self.music_list[self.music]) or is_loop:
                     MusicPlayer.play(self.music_list[self.music])
                 else:
                     log.write(f"歌曲[{self.music_list[self.music]}]触发保护,跳过播放")
@@ -687,8 +638,8 @@ def stop() -> None:
 
     if Data != None:
         log.write("结束统计器=stop")
-        Data.get_time_e()
-        Data.end_write()
+        Data.get_end_time()
+        Data.write()
 
     # 停止音乐播放
     log.write("音乐播放停止=stop",3)
@@ -723,7 +674,7 @@ def summon_music_path(main_paths: list) -> list:
                     log.write(f"添加音乐文件[{name}]=summon_music_path")
                     mus = os.path.normpath(os.path.join(root, name))
                     files.append(mus)
-                    Data.add_num(mus)
+                    Data.add_num(os.path.splitext(os.path.basename(mus))[0])
     
     Data.set_n(len(files))
     return files
@@ -762,7 +713,7 @@ if 4 < _lever or _lever < 0:
     log.write("日志等级错误,拒绝更改=__main__",2)
 else:
     log.change_lever(_lever)
-Data = data_manage(cfg=config)
+Data = DataManage(cfg=config)
 
 MusicPlayer = player(config)
 MusicList = for_songs(config)
