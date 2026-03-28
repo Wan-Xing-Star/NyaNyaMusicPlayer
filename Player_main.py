@@ -3,7 +3,7 @@ import os,sys,json,random,time,re,atexit,threading,sqlite3
 from typing import Any
 import pygame # pip install pygame #2.6.1
 from pynput import keyboard # pip install pynput #1.8.1
-from tinytag import TinyTag # pip install tinytag
+from mutagen._file import File # pip install tinytag
 
 pygame.mixer.init() #初始化音乐播放器
 
@@ -142,11 +142,13 @@ class DataManage:
         if not self.is_ok:
             return None
         try:
-            song_info = TinyTag.get(song_path)
+            song_info = File(song_path)
+            if not song_info:
+                return
             song_name = self.path_to_name(song_path)
-            artist = song_info.artist if song_info.artist else "Unknown;"
-            artist = self.normalize_artist(artist) #规范化,使用 ; 分割
-            duration = song_info.duration if song_info.duration else 0
+            artist = song_info.get("artist",["Unknown"])
+            artist = ";".join(artist) #规范化,使用 ; 分割
+            duration = song_info.info.length
             self.cursor.execute(
                 "INSERT INTO songs (SongName, Duration, Artists, PlayCount, LoopCount, FirstPlay, LastPlay) VALUES (?, ?, ?, 0, 0, ?, ?)",
                 (song_name, duration, artist, int(time.time()), int(time.time()))
@@ -156,20 +158,33 @@ class DataManage:
         except Exception as e:
             log.write(f"添加歌曲[{song_name}]数据时发生错误: {e}", 1)
 
-    def normalize_artist(self,artist_str: str) -> str:
+    def check_song(self,song_path: str) ->None:
         """
-        将艺术家字符串中的常见分隔符统一转换为分号（;）分隔，
-        并规范化空格。
+        检查并更新同名歌曲的数据
         """
-        if not artist_str:
-            return artist_str
-        pattern = r'\s*[/;,]\s*|\s+feat\.?\s+|\s+ft\.?\s+|\s+&\s+|\s+and\s+'
-        # 先用分隔符拆分
-        parts = re.split(pattern, artist_str, flags=re.IGNORECASE)
-        # 过滤空字符串并去除首尾空格
-        parts = [p.strip() for p in parts if p.strip()]
-        # 用分号加空格重新连接
-        return ';'.join(parts)
+        song_name = self.path_to_name(song_path)
+        song_info = File(song_path)
+        db_song_info = self.get_song(song_name)
+        if not db_song_info or not song_info:
+            return None
+        
+        artist = song_info.get("artist",["Unknown"])
+        artist = ";".join(artist) #规范化,使用 ; 分割
+        duration = song_info.info.length
+
+        if db_song_info["Artists"] != artist:
+            self.cursor.execute(
+                "UPDATE songs SET Artists = ? WHERE SongName = ?",
+                (artist, song_name)
+            )
+            self.db.commit()
+        
+        if db_song_info["Duration"] != duration:
+            self.cursor.execute(
+                "UPDATE songs SET Duration = ? WHERE SongName = ?",
+                (duration, song_name)
+            )
+            self.db.commit()
 
     def count_song(self, song_path: str) -> None:
         """
@@ -180,11 +195,14 @@ class DataManage:
         if not self.is_ok:
             return None
         
+        self.check_song(song_path) # 检查数据
+
         song_name = self.path_to_name(song_path)
         if song_name not in self.day_data["song"]:
-            self.day_data[song_name] = [0,0] # [播放次数,循环播放次数]
-        self.day_data[song_name][0] += 1
-        self.day_data[song_name][0] += 1 if is_loop else 0
+            self.day_data["song"][song_name] = [0,0] # [播放次数,循环播放次数]
+        self.day_data["song"][song_name][0] += 1
+        if is_loop:
+            self.day_data["song"][song_name][1] += 1
 
         try:
             song_data = self.get_song(song_name)
@@ -239,7 +257,7 @@ class DataManage:
         except FileNotFoundError:
             log.write("数据文件[main.json]不存在,将创建",2)
         except Exception as e:
-            log.write("处理[main.json]时发生未知错误[{e}],数据记录功能关闭",1)
+            log.write(f"处理[main.json]时发生未知错误[{e}],数据记录功能关闭",1)
             self.is_ok = False
 
             

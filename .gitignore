@@ -10,4 +10,7 @@ NyaNyaMusic_v1.7.1.spec
 NyaNyaMusic_v1.7.2.spec
 config.json
 /.vscode
+/.venv
 NyaNyaData.session.sql
+NyaNyaMusic_v2.0.0.spec
+Test.py
