@@ -1,17 +1,16 @@
 #Python:3.13
-import os,sys,json,random,time,threading,sqlite3
+import os,sys,json,random,time,re,atexit,threading,sqlite3
 from typing import Any
-import pygame #pip install pygame #2.6.1
-from pynput import keyboard #pip install pynput #1.8.1
-from mutagen._file import File #pip install mutagen #1.47.0
+import pygame # pip install pygame #2.6.1
+from pynput import keyboard # pip install pynput #1.8.1
+from tinytag import TinyTag # pip install tinytag
 
 pygame.mixer.init() #初始化音乐播放器
 
 is_pause = False
 is_loop = False
 running = True
-data_path = os.path.normpath(os.path.join(os.getcwd(),"data/")) #数据文件夹目录
-log_path = os.path.normpath(os.path.join(os.getcwd(),"log/"))
+main_path = os.path.dirname(sys.executable) if getattr(sys, 'frozen', False) else os.path.dirname(__file__)
 music_play_list = []
 Lock = threading.Lock()
 message = None
@@ -19,8 +18,9 @@ message = None
 
 class DataManage:
     def __init__(self,cfg: dict) -> None:
-        if not os.path.exists(data_path):
-            os.makedirs(data_path,exist_ok=True)
+        self.path = os.path.normpath(os.path.join(main_path,"data/"))
+        if not os.path.exists(self.path):
+            os.makedirs(self.path,exist_ok=True)
 
         self.times = 0
         self.start_time = 0
@@ -65,6 +65,9 @@ class DataManage:
 
         self.read()
 
+    def path_to_name(self,song_path: str) ->str:
+        return os.path.splitext(os.path.split(song_path)[1])[0]
+
     def set_n(self,n: int) -> None:
         """设置歌曲总数"""
         if not self.is_ok:
@@ -72,28 +75,29 @@ class DataManage:
         self.all_song = n
         log.write(f"设置歌曲总数为[{n}]=DataManage.set_n",3)
 
-    def add_num(self,song_name: str) -> None:
+    def add_num(self,song_path: str) -> None:
         """为新歌曲添加数据"""
         if not self.is_ok:
             return None
+        song_name = self.path_to_name(song_path)
         song_info = self.get_song(song_name)
         self.all_song_play_count += 0 if song_info is None else song_info["PlayCount"]
         log.write(f"为歌曲[{song_name}]添加数据=DataManage.add_num",3)
         if self.is_loop_balance:
             self.all_song_play_count -= 0 if song_info is None else song_info["LoopCount"]
     
-    def balance_play(self,song_name: str) -> bool:
-        """判断歌曲是否可以播放（未触发平衡播放保护）"""
+    def balance_play(self,song_path: str) -> bool:
+        """判断歌曲是否可以播放（未触发平衡播放保护）"""   
         if not self.is_ok:
             return True
+        song_name = self.path_to_name(song_path)
         if self.all_song == 0:
             log.write("歌曲总数为0,无法执行平衡播放保护=DataManage.balance_play",2)
             return True
         song_info = self.get_song(song_name)
         if song_info is None:
             log.write(f"歌曲[{song_name}]数据未找到,无法执行平衡播放保护=DataManage.balance_play",2)
-            song_infos = File(song_name)
-            self.add_song(song_name, song_infos.info.length if song_infos and song_infos.info else 0, song_infos.tags.get("TPE1", ["Unknown"]) if song_infos and song_infos.tags else ["Unknown"])
+            self.add_song(song_path)
             return True
         
         play_count = song_info["PlayCount"] - (song_info["LoopCount"] if self.is_loop_balance else 0)
@@ -110,7 +114,7 @@ class DataManage:
     def get_song(self, song_name: str) ->dict | None:
         """
         读取指定song的所有数据，返回该song行的所有字段内容。
-        :param song_name: 歌曲名
+        :param song_name: 歌曲名(非路径)
         :return: dict 或 None（未找到时）
         """
         if not self.is_ok:
@@ -128,7 +132,7 @@ class DataManage:
             log.write(f"读取歌曲[{song_name}]数据时发生错误: {e}", 1)
             return None
         
-    def add_song(self, song_name: str, duration: int, artists: list) -> None:
+    def add_song(self, song_path: str) -> None:
         """
         添加新song数据到数据库。
         :param song_name: 歌曲名
@@ -138,7 +142,11 @@ class DataManage:
         if not self.is_ok:
             return None
         try:
-            artist = ";".join(artists)  # 将艺术家列表转换为字符串
+            song_info = TinyTag.get(song_path)
+            song_name = self.path_to_name(song_path)
+            artist = song_info.artist if song_info.artist else "Unknown;"
+            artist = self.normalize_artist(artist) #规范化,使用 ; 分割
+            duration = song_info.duration if song_info.duration else 0
             self.cursor.execute(
                 "INSERT INTO songs (SongName, Duration, Artists, PlayCount, LoopCount, FirstPlay, LastPlay) VALUES (?, ?, ?, 0, 0, ?, ?)",
                 (song_name, duration, artist, int(time.time()), int(time.time()))
@@ -148,7 +156,22 @@ class DataManage:
         except Exception as e:
             log.write(f"添加歌曲[{song_name}]数据时发生错误: {e}", 1)
 
-    def count_song(self, song_name: str) -> None:
+    def normalize_artist(self,artist_str: str) -> str:
+        """
+        将艺术家字符串中的常见分隔符统一转换为分号（;）分隔，
+        并规范化空格。
+        """
+        if not artist_str:
+            return artist_str
+        pattern = r'\s*[/;,]\s*|\s+feat\.?\s+|\s+ft\.?\s+|\s+&\s+|\s+and\s+'
+        # 先用分隔符拆分
+        parts = re.split(pattern, artist_str, flags=re.IGNORECASE)
+        # 过滤空字符串并去除首尾空格
+        parts = [p.strip() for p in parts if p.strip()]
+        # 用分号加空格重新连接
+        return ';'.join(parts)
+
+    def count_song(self, song_path: str) -> None:
         """
         更新song的播放数据（PlayCount、LastPlay、LoopCount）。
         :param song_name: 歌曲名
@@ -156,6 +179,13 @@ class DataManage:
         global is_loop
         if not self.is_ok:
             return None
+        
+        song_name = self.path_to_name(song_path)
+        if song_name not in self.day_data["song"]:
+            self.day_data[song_name] = [0,0] # [播放次数,循环播放次数]
+        self.day_data[song_name][0] += 1
+        self.day_data[song_name][0] += 1 if is_loop else 0
+
         try:
             song_data = self.get_song(song_name)
             if song_data:
@@ -169,7 +199,7 @@ class DataManage:
                 self.db.commit()
                 log.write(f"更新歌曲[{song_name}]播放数据=DataManage.count_song", 3)
             else:
-                log.write(f"歌曲[{song_name}]未找到，无法更新播放数据=DataManage.count_song", 2)
+                log.write(f"歌曲[{song_name}]未找到,将自动添加", 3)
         except Exception as e:
             log.write(f"更新歌曲[{song_name}]播放数据时发生错误: {e}", 1)
 
@@ -202,19 +232,19 @@ class DataManage:
     def read(self) ->None:            
         """读取文件"""
         try:
-            main_file_path = os.path.normpath(os.path.join(data_path,"main.json"))
+            main_file_path = os.path.normpath(os.path.join(self.path,"main.json"))
             with open(main_file_path,"r",encoding=self.encode) as f:
                 self.main_data = json.load(f)
                 log.write("读取数据[main.json]")
         except FileNotFoundError:
             log.write("数据文件[main.json]不存在,将创建",2)
         except Exception as e:
-            log.write(f"处理[main.json]时发生未知错误[{e}],数据记录功能关闭",1)
+            log.write("处理[main.json]时发生未知错误[{e}],数据记录功能关闭",1)
             self.is_ok = False
 
             
         try:
-            day_file_path = os.path.normpath(os.path.join(data_path,f"{get_gura_day()}.json"))
+            day_file_path = os.path.normpath(os.path.join(self.path,f"{get_gura_day()}.json"))
             with open(day_file_path,"r",encoding=self.encode) as f:
                 self.day_data = json.load(f)
                 log.write(f"读取数据[{get_gura_day()}.json]=data_manage.open")
@@ -248,12 +278,12 @@ class DataManage:
             self.main_data["month"][today[:6]] = 0
         self.main_data["month"][today[:6]] += self.times
 
-        main_file_path = os.path.normpath(os.path.join(data_path,"main.json"))
+        main_file_path = os.path.normpath(os.path.join(self.path,"main.json"))
         with open(main_file_path,"w",encoding=self.encode) as file:
             log.write(f"写入文件[main.json]内容为[{self.main_data}]=data_manage.write")
             json.dump(self.main_data,file,indent=4,ensure_ascii=False)
         
-        day_file_path = os.path.normpath(os.path.join(data_path,f"{gura_day}.json"))
+        day_file_path = os.path.normpath(os.path.join(self.path,f"{gura_day}.json"))
         with open(day_file_path,"w",encoding=self.encode) as file:
             log.write(f"写入文件[{gura_day}.json]内容为[{self.day_data}]=data_manage.write")
             json.dump(self.day_data,file,indent=4,ensure_ascii=False)
@@ -274,6 +304,9 @@ class logs:
         return cls.obj
     
     def __init__(self):
+        self.path = os.path.normpath(os.path.join(main_path,"log/"))
+        if not os.path.exists(self.path):
+            os.makedirs(self.path,exist_ok=True)
         self.already_init = False
         self.levers = {4:"[Debug]",3:"[Info ]",2:"[Warn ]",1:"[Error]",0:"[Panic]"}
 
@@ -281,10 +314,10 @@ class logs:
         """初始化日志"""
         if self.already_init:
             return None
-        if not os.path.exists(log_path):
-            os.makedirs(log_path,exist_ok=True)
+        if not os.path.exists(self.path):
+            os.makedirs(self.path,exist_ok=True)
 
-        file_path = os.path.normpath(os.path.join(log_path,f"{get_gura_day()}-{time.strftime('%H%M%S')}.wan"))
+        file_path = os.path.normpath(os.path.join(self.path,f"{get_gura_day()}-{time.strftime('%H%M%S')}.wan"))
         self.file = os.open(file_path,os.O_WRONLY | os.O_CREAT)
         os.write(self.file,"     *Thank You For Your Use*\n\n".encode())
         self.write_lever = levers
@@ -305,7 +338,7 @@ class logs:
 
     def del_old(self):
         try:
-            log_list: list = os.listdir(log_path)
+            log_list: list = os.listdir(self.path)
             files = [file_name for file_name in log_list if os.path.splitext(file_name)[1] == ".wan"]
             current_log_name = f"{get_gura_day()}-{time.strftime('%H%M%S')}.wan"
             if current_log_name in files:
@@ -314,7 +347,7 @@ class logs:
 
             while len(files) > 10:
                 log_wan = files[0]
-                os.remove(os.path.normpath(os.path.join(log_path,log_wan)))
+                os.remove(os.path.normpath(os.path.join(self.path,log_wan)))
                 files.remove(log_wan)
         except Exception as e:
             self.write(f"清理日志文件时发生错误: {e}",2)
@@ -516,7 +549,7 @@ class for_songs:
     def __init__(self,cfg: dict):
         log.write("初始化for_songs类=for_songs.__init__")
         self.music = 0
-        self.music_list = []
+        self.music_list: list[str] = []
         self.true_list = []
         self.true_random_play_again = 3
         self.balance_play = cfg["平衡播放"],
@@ -658,7 +691,7 @@ def stop() -> None:
     log.write("程序即将关闭=stop",3)
     time.sleep(0.3)
     log.close()
-    sys.exit(0)  # 0 表示正常退出
+    os._exit(0)  # 0 表示正常退出
 
 def summon_music_path(main_paths: list) -> list:
     log.write("开始生成音乐文件路径=summon_music_path",3)
@@ -674,7 +707,7 @@ def summon_music_path(main_paths: list) -> list:
                     log.write(f"添加音乐文件[{name}]=summon_music_path")
                     mus = os.path.normpath(os.path.join(root, name))
                     files.append(mus)
-                    Data.add_num(os.path.splitext(os.path.basename(mus))[0])
+                    Data.add_num(mus)
     
     Data.set_n(len(files))
     return files
@@ -703,6 +736,8 @@ def create_hotkeys(config):
     }
     log.write(f"返回监听字典[{_dict}]=create_hotkeys")
     return _dict
+
+atexit.register(stop)
 
 log = logs()
 log.init(3)
