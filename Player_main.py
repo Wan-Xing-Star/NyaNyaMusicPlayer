@@ -1,9 +1,9 @@
 #Python:3.13
-import os,sys,json,random,time,re,atexit,threading,sqlite3
+import os,sys,json,random,time,atexit,threading,sqlite3
 from typing import Any
 import pygame # pip install pygame #2.6.1
 from pynput import keyboard # pip install pynput #1.8.1
-from mutagen._file import File # pip install tinytag
+from mutagen._file import File,FileType # pip install tinytag
 
 pygame.mixer.init() #初始化音乐播放器
 
@@ -131,7 +131,23 @@ class DataManage:
         except Exception as e:
             log.write(f"读取歌曲[{song_name}]数据时发生错误: {e}", 1)
             return None
-        
+    
+    def get_artist(self,song_info,song_path: str) -> str:   # 类型检查器何一未?
+        if song_info is None:
+            return "Unknown"
+        song_type = os.path.splitext(song_path)[1].lower()
+        if song_type == '.acc' or song_type == '.wav':
+            return "Unknown"
+        elif song_type == '.mp3':
+            return song_info.get("TPE1",["Unknown"])[0].replace('/',';')
+        elif song_type == '.flac' or song_type == '.ogg':
+            return ";".join(song_info.get("artist",["Unknown"]))
+        elif song_type == '.m4a':
+            return ";".join(song_info.get("©ART",["Unknown"])[0].split('/'))
+        elif song_type == '.wma':
+            return ";".join(str(artist) for artist in song_info.get("Author",["Unknown"]))
+        return "Unknown"
+
     def add_song(self, song_path: str) -> None:
         """
         添加新song数据到数据库。
@@ -146,8 +162,7 @@ class DataManage:
             if not song_info:
                 return
             song_name = self.path_to_name(song_path)
-            artist = song_info.get("artist",["Unknown"])
-            artist = ";".join(artist) #规范化,使用 ; 分割
+            artist = self.get_artist(song_info,song_path)
             duration = song_info.info.length
             self.cursor.execute(
                 "INSERT INTO songs (SongName, Duration, Artists, PlayCount, LoopCount, FirstPlay, LastPlay) VALUES (?, ?, ?, 0, 0, ?, ?)",
@@ -168,8 +183,7 @@ class DataManage:
         if not db_song_info or not song_info:
             return None
         
-        artist = song_info.get("artist",["Unknown"])
-        artist = ";".join(artist) #规范化,使用 ; 分割
+        artist = self.get_artist(song_info,song_path)
         duration = song_info.info.length
 
         if db_song_info["Artists"] != artist:
