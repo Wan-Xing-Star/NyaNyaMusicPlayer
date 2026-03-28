@@ -744,7 +744,7 @@ def summon_music_path(main_paths: list) -> list:
     Data.set_n(len(files))
     return files
 
-def create_hotkeys(config):
+def create_hotkeys(config) -> dict:
     log.write("生成按键监测字典=create_hotkeys")
     need_updata = False
     required_keys = ["暂停", "退出", "音量+", "音量-", "上一曲", "下一曲","单曲循环"]
