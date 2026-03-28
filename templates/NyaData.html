@@ -3,43 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="shortcut icon" href="../ico/main.ico">
+    <link rel="shortcut icon" href="/static/img/main.ico">
+    <link rel="stylesheet" type="text/css" href="/static/css/main.css">
     <title>NyaData - 播放数据展示</title>
-    <style>
-        header {
-            display: flex;
-            position:fixed;
-            height: 50px;
-            width: 100%;
-            background-color: rgb(68, 214, 240);
-        }
-
-        header a {
-            flex: 0 0 50%;
-            height: 50px;
-            text-align: center;
-            border: 2px solid rgb(21, 77, 145);        
-        }
-
-        table {
-            border:solid rgb(68, 214, 240);
-            border:5px;
-        }
-
-    </style>
 </head>
 <body>
     <!-- 导航栏部分,所有数据在同一页面内 -->
     <header>
-        <nav>
-            <a href="#all_data">数据总览</a>
-            <a href="#each_song">各歌曲信息</a>
-        </nav>
+        <div id="nav">
+            <ul>
+                <li><a href="/main">数据总览</a></li>
+                <li><a href="/each">各歌曲信息</a></li>
+                <li><a href="/about">关于</a></li>
+            </ul>
+        </div>
     </header>
+
     <!-- 各部分数据,用表格承接 -->
-    <br><br><br><br><br>
-    <h1>NyaData</h1>
-    <input type="submit" value="刷新">
     <div id="all_data">
         <h2>数据总览</h2>
         <table id="all_data_table">
@@ -56,55 +36,35 @@
 
         </table>
     </div>
-    
-    <div id="each_song">
-        <h2>各歌曲信息</h2>
-        <table id="each_song_table">
-            <tr>
-                <th>歌曲名</th>
-                <th>歌手</th>
-                <th>播放次数</th>    
-            </tr>
-            
-        </table>
-    </div>
 
     <!-- 脚本设置 -->
     <script>
-        // 数据格式 int(总播放时间,小时),list(月播放时长,格式:[月份01,时长,小时]),还有今年是几几年(int)
-        // 定义刷新数据按钮点击后向服务器发送数据,还不会写,不过刷新界面应该也行
-        function re_flash() {
-            NaN
-        }
+        // 数据格式 总时长total_hours 本年年份year [月份,月数据,...]数组monthData
+        // 使用flask接收json的变量
+        const totalHour = {{total_hours|tojson}};
+        const year = {{year|tojson}};
+        const monthData = {{month_data|tojson}};
 
         // 获取总数据并写入表格
         window.addEventListener("DOMContentLoaded", function() {
-            const query_string = window.location.search;
-            const string_params = new URLSearchParams(query_string);
-            let all_time = string_params
             let table = document.getElementById("all_data_table");
             let newRow = table.insertRow();
             let new_data1 = newRow.insertCell();
-            new_data1.innerText = `${all_time}小时`;
+            new_data1.innerText = `${totalHour}小时`;
         })
 
         // 获取各月份数据并写入表格
         window.addEventListener("DOMContentLoaded", function(){
-            const query_string = window.location.search;
-            const string_params = new URLSearchParams(query_string);
-            array_split = string_params.split(",");
-            let month = null;
-            let month_time = null;
-            for (let i = 0; i<(array_split.length()-2); i++) {
-                month = array_split[i];
-                month_time = array_split[i+1];
-                year = array_spilt[array_split.length()];
-                let table = document.getElementById("each_song_table");
+            for (let i=0; i<(monthData.length-1); i++) {
+                let month = monthData[i];
+                let monthHour = monthData[i+1];
+                let table = document.getElementById("month_data_table")
                 let newRow = table.insertRow();
-                let month_cell = newRow.insertCell();
-                let month_time_Cell = newRow.insertCell();
-                new_month_data.innerText = `${data}年${month}月`;
-                new_month_time_data.innerText = `${month_time}小时`;
+                let new_month = table.insertCell();
+                let new_monthHour = table.insertCell();
+
+                new_month.innerText = `${year}年${month}月`;
+                new_monthHour.innerText = `${monthHour}小时`;
             }
         })
 
