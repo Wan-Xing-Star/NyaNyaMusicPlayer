@@ -39,7 +39,7 @@ class DataManage:
         except Exception as e:
             self.is_ok = False
     
-    def get_index_data(self) ->tuple:
+    def get_index_data(self) ->list:
         """
         获取主页数据\n
         -> tuple\n
@@ -60,7 +60,7 @@ class DataManage:
             month_data.append([month,month_data_get])
         
         data.append(month_data)
-        return tuple(data)
+        return data
 
 
 
@@ -70,7 +70,7 @@ Data = DataManage()
 @app.route("/")
 def index():
     data = Data.get_index_data()
-    return render_template("NyaData.html",all_data = data)
+    return render_template("NyaData.html", all_data = data)
 
 
 def open_browser():
