@@ -40,7 +40,26 @@
     background-color: rgb(102, 102, 102);
 }
 
+/* h2标题设置 */
+h2 
+
 /* 数据展示的表格部分 */
-table th td {
+table {
+    border: 2px solid rgb(212, 212, 212);
+}
+
+#totalHour_table {
+    float: left;
+}
+
+#monthData_table {
+    float: right;
+}
+
+table tr th {
+    border: 2px solid rgb(212, 212, 212);
+}
+
+table tr td {
     border: 2px solid rgb(212, 212, 212);
 }
