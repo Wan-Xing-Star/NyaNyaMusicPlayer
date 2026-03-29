@@ -14,21 +14,22 @@
             <ul>
                 <li><a href="/main">数据总览</a></li>
                 <li><a href="/each">各歌曲信息</a></li>
-                <li><a href="/about">关于</a></li>
+                <li style="float:right" id="nav_about"><a href="/about">关于</a></li>
             </ul>
         </div>
     </header>
 
     <!-- 各部分数据,用表格承接 -->
-    <div id="all_data">
+    <div id="totalHour">
         <h2>数据总览</h2>
-        <table id="all_data_table">
+        <button onclick="totalTable()">更新</button>
+        <table id="totalHour_table">
             <tr>
                 <th>总播放时长</th>
             </tr>
 
         </table>
-        <table id="month_data_table">
+        <table id="monthData_table">
             <tr>
                 <th>月份</th>
                 <th>月播放时长</th>
@@ -39,35 +40,54 @@
 
     <!-- 脚本设置 -->
     <script>
-        // 数据格式 总时长total_hours 本年年份year [月份,月数据,...]数组monthData
+        // 数据格式 数据整体all_data ; 总时长total_hours ; 本年年份year ; [月份,月数据,...]数组monthData
         // 使用flask接收json的变量
-        const totalHour = {{total_hours|tojson}};
-        const year = {{year|tojson}};
-        const monthData = {{month_data|tojson}};
+        const allData = {{all_data|tojson}};
+        const year = allData[0];
+        const totalHour = allData[1];
+        const monthData = allData[2];
 
-        // 获取总数据并写入表格
+        // 向总播放时长写入信息
         window.addEventListener("DOMContentLoaded", function() {
+            let table = document.getElementById("totalHour_table");
+            let newRow = table.insertRow(-1);
+            let new_data1 = newRow.insertCell(0);
+            if (totalHour != 0) {
+                new_data1.innerText = `${totalHour}小时`;
+            } else {
+                new_data1.innerText = `未记录到播放时长`;
+            }
+            
+        })
+
+        // 向每月时长写入信息
+        function monthTable(monthData) {
+            let table = document.getElementById("monthData_table");
+            let newRow = table.insertRow();
+            let newData1 = newRow.insertCell();
+            let newData2 = newRow.insertCell();
+            for (let i=0;i<monthData.length;i+=2) {
+                if (totalHour != undefined) {
+                    newData1.innerText = `${year}年${monthData[i]}月`;
+                    newData2.innerText = `${monthData[i+1]}小时`;
+                } else {
+                newData1.innerText = `未获取到数据`;
+                newData2.innerText = `未获取到数据`;
+                }
+            }
+        }
+
+        /* window.addEventListener("DOMContentLoaded", function() {
             let table = document.getElementById("all_data_table");
             let newRow = table.insertRow();
             let new_data1 = newRow.insertCell();
-            new_data1.innerText = `${totalHour}小时`;
-        })
-
-        // 获取各月份数据并写入表格
-        window.addEventListener("DOMContentLoaded", function(){
-            for (let i=0; i<(monthData.length-1); i++) {
-                let month = monthData[i];
-                let monthHour = monthData[i+1];
-                let table = document.getElementById("month_data_table")
-                let newRow = table.insertRow();
-                let new_month = table.insertCell();
-                let new_monthHour = table.insertCell();
-
-                new_month.innerText = `${year}年${month}月`;
-                new_monthHour.innerText = `${monthHour}小时`;
+            if (totalHour != 0) {
+                new_data1.innerText = `${totalHour}小时`;
+            } else {
+                new_data1.innerText = `未记录到播放时长`;
             }
-        })
-
+            
+        }) */
     </script>
 </body>
 </html>
