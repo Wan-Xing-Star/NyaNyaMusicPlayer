@@ -64,25 +64,13 @@ class DataManage:
 
 
 
-
-
-
-
-
-
-
 Data = DataManage()
 
 
 @app.route("/")
 def index():
     data = Data.get_index_data()
-    year = data[0]
-    duration = data[1]
-    month = data[2]
-    return render_template("NyaData.html",year=year,
-                           total_hours=duration,
-                           month_data=month)
+    return render_template("NyaData.html",all_data = data)
 
 
 def open_browser():

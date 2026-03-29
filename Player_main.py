@@ -3,7 +3,7 @@ import os,sys,json,random,time,atexit,threading,sqlite3
 from typing import Any
 import pygame # pip install pygame #2.6.1
 from pynput import keyboard # pip install pynput #1.8.1
-from mutagen._file import File,FileType # pip install tinytag
+from mutagen._file import File # pip install mutagen
 
 pygame.mixer.init() #初始化音乐播放器
 
