@@ -20,21 +20,21 @@
     </header>
 
     <!-- 各部分数据,用表格承接 -->
+    <h2>数据总览</h2>
     <div id="totalHour">
-        <h2>数据总览</h2>
-        <button onclick="totalTable()">更新</button>
         <table id="totalHour_table">
             <tr>
-                <th>总播放时长</th>
+                <th>总播放数据</th>
             </tr>
-
         </table>
         <table id="monthData_table">
             <tr>
-                <th>月份</th>
-                <th>月播放时长</th>
+                <th colspan="2">每月播放数据</th>
             </tr>
-
+            <tr>
+                <th>月份</th>
+                <th>播放时长</th>
+            </tr>
         </table>
     </div>
 
@@ -58,36 +58,20 @@
                 new_data1.innerText = `未记录到播放时长`;
             }
             
-        })
+        });
 
         // 向每月时长写入信息
-        function monthTable(monthData) {
+        window.addEventListener("DOMContentLoaded", function() {
             let table = document.getElementById("monthData_table");
-            let newRow = table.insertRow();
-            let newData1 = newRow.insertCell();
-            let newData2 = newRow.insertCell();
-            for (let i=0;i<monthData.length;i+=2) {
-                if (totalHour != undefined) {
-                    newData1.innerText = `${year}年${monthData[i]}月`;
-                    newData2.innerText = `${monthData[i+1]}小时`;
-                } else {
-                newData1.innerText = `未获取到数据`;
-                newData2.innerText = `未获取到数据`;
-                }
-            }
-        }
-
-        /* window.addEventListener("DOMContentLoaded", function() {
-            let table = document.getElementById("all_data_table");
-            let newRow = table.insertRow();
-            let new_data1 = newRow.insertCell();
-            if (totalHour != 0) {
-                new_data1.innerText = `${totalHour}小时`;
-            } else {
-                new_data1.innerText = `未记录到播放时长`;
+            for (let i=0; i<monthData.length-1; i++) {
+                table.insertRow(-1);
+                newRow.insertCell(0); // 对不同索引位置的表格添加数据
+                newRow.insertCell(1);
+                new_data1.innerText = `${year}年${monthData[i]}`
+                new_data2.innerText = `${monthData[i+1]}小时`
             }
             
-        }) */
+        });
     </script>
 </body>
 </html>
