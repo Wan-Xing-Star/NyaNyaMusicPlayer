@@ -1,20 +1,26 @@
 /* 设置导航栏 */
 #nav ul {
+
+    top: 0;
+    width: 100%;
     list-style-type: none;
     margin: 0;
     padding: 0;
+    overflow: hidden;
 }
 
 #nav ul {
-    display: block;
-    width: 100;
-    height: 70px;
-    background-image: url(/static/img/nav_background.jpg);
+    background: rgb(188, 188, 188);
     background-position: 0% 38%;
 }
 
 #nav li {
     float: left;
+    border-right: 1px solid rgb(212, 212, 212);
+}
+
+#nav #nav_about {
+    border-left: 1px solid rgb(212, 212, 212);
 }
 
 #nav li a {
@@ -25,5 +31,16 @@
 
 #nav li a {
     text-align: center;
+    padding: 20px 20px;
     color: black;
+    font-size: 120%;
+}
+
+#nav li a:hover {
+    background-color: rgb(102, 102, 102);
+}
+
+/* 数据展示的表格部分 */
+table th td {
+    border: 2px solid rgb(212, 212, 212);
 }
