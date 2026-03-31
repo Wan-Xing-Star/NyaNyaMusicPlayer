@@ -40,14 +40,11 @@
     background-color: rgb(128, 215, 255);
 }
 
-/* h2标题设置 */
-h2 
-
 /* 数据展示的表格部分 */
 /* 设置数据总览和月数据的表格位置 */
 table {
     border: 2px solid rgb(212, 212, 212);
-    border-radius: 8px;
+    border-radius: 10px;
 }
 
 #totalHour_table {
@@ -71,8 +68,8 @@ table tr td {
 }
 
 table tr th, table tr td {
-    border: 2px solid rgb(212, 212, 212);
-    border-radius: 5px;
+    border: 1px solid rgb(212, 212, 212);
+    border-radius: 7px;
     text-align: center;
 }
 
