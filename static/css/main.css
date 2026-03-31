@@ -10,7 +10,7 @@
 }
 
 #nav ul {
-    background: rgb(188, 188, 188);
+    background: rgb(182, 232, 255);
     background-position: 0% 38%;
 }
 
@@ -37,15 +37,17 @@
 }
 
 #nav li a:hover {
-    background-color: rgb(102, 102, 102);
+    background-color: rgb(128, 215, 255);
 }
 
 /* h2标题设置 */
 h2 
 
 /* 数据展示的表格部分 */
+/* 设置数据总览和月数据的表格位置 */
 table {
     border: 2px solid rgb(212, 212, 212);
+    border-radius: 8px;
 }
 
 #totalHour_table {
@@ -57,9 +59,27 @@ table {
 }
 
 table tr th {
-    border: 2px solid rgb(212, 212, 212);
+    background-color: rgb(128, 215, 255);
+    width: 150px;
+    height: 40px;
 }
 
 table tr td {
+    background-color: rgb(218, 243, 255);
+    width: 150px;
+    height: 25px;
+}
+
+table tr th, table tr td {
     border: 2px solid rgb(212, 212, 212);
+    border-radius: 5px;
+    text-align: center;
+}
+
+table tr td:hover {
+    background-color: rgb(128, 215, 255);
+}
+
+table tr th:hover {
+    background-color: rgb(128, 215, 255);
 }
