@@ -78,7 +78,7 @@ class DataManage:
         if not self.is_ok:
             return None
         self.all_song = n
-        log.write(f"设置歌曲总数为[{n}]=DataManage.set_n",3)
+        log.write(f"设置歌曲总数为[{n}]",3)
 
     def add_num(self,song_path: str) -> None:
         """为新歌曲添加数据"""
@@ -87,7 +87,7 @@ class DataManage:
         song_name = self.path_to_name(song_path)
         song_info = self.get_song(song_name)
         self.all_song_play_count += 0 if not song_info else song_info["PlayCount"]
-        log.write(f"为歌曲[{song_name}]添加数据=DataManage.add_num",3)
+        log.write(f"为歌曲[{song_name}]添加数据",3)
         if self.is_loop_balance:
             self.all_song_play_count -= 0 if not song_info else song_info["LoopCount"]
     
@@ -97,7 +97,7 @@ class DataManage:
             return True
         song_name = self.path_to_name(song_path)
         if self.all_song == 0:
-            log.write("歌曲总数为0,无法执行平衡播放保护=DataManage.balance_play",2)
+            log.write("歌曲总数为0,无法执行平衡播放保护",2)
             return True
         song_info = self.get_song(song_name)
         if song_info is None:
@@ -135,7 +135,9 @@ class DataManage:
             row = self.cursor.fetchone()
             if row:
                 columns = [desc[0] for desc in self.cursor.description]
-                return dict(zip(columns, row))
+                info = dict(zip(columns, row))
+                log.write(f"获取到[{song_name}]的数据为[{info}]")
+                return info
             else:
                 log.write(f"获取[{song_name}]数据时失败",2)
                 return None
@@ -180,7 +182,7 @@ class DataManage:
                 (song_name, duration, artist, int(time.time()), int(time.time()))
             )
             self.db.commit()
-            log.write(f"添加歌曲[{song_name}]到数据库=DataManage.add_song", 3)
+            log.write(f"添加歌曲[{song_name}]到数据库", 3)
         except Exception as e:
             log.write(f"添加歌曲[{song_name}]数据时发生错误: {e}", 1)
 
@@ -228,6 +230,7 @@ class DataManage:
         self.day_data["song"][song_name][0] += 1
         if is_loop:
             self.day_data["song"][song_name][1] += 1
+        log.write(f"当前日数据为[{self.day_data}]")
 
         try:
             song_data = self.get_song(song_name)
@@ -240,7 +243,7 @@ class DataManage:
                     (new_play_count, new_last_play, new_loop_count, song_name)
                 )
                 self.db.commit()
-                log.write(f"更新歌曲[{song_name}]播放数据=DataManage.count_song", 3)
+                log.write(f"更新歌曲[{song_name}]播放数据", 3)
             else:
                 log.write(f"歌曲[{song_name}]未找到,将自动添加", 3)
         except Exception as e:
@@ -294,9 +297,9 @@ class DataManage:
             day_file_path = os.path.normpath(os.path.join(self.path,f"Days/{get_gura_day()}.json"))
             with open(day_file_path,"r",encoding=self.encode) as f:
                 self.day_data = json.load(f)
-                log.write(f"读取数据[{get_gura_day()}.json]=data_manage.open")
+                log.write(f"读取数据[{get_gura_day()}.json]")
         except FileNotFoundError:
-            log.write(f"数据文件[{get_gura_day()}.json]不存在,将创建=data_manage.open",2)
+            log.write(f"数据文件[{get_gura_day()}.json]不存在,将创建",2)
             pass
         except Exception as e:
             log.write(f"处理[{get_gura_day()}.json]时发生未知错误[{e}],数据记录功能关闭",1)
@@ -349,7 +352,7 @@ class DataManage:
         main_file_path = os.path.normpath(os.path.join(self.path,"main.json"))
         try:
             with open(main_file_path,"w",encoding=self.encode) as file:
-                log.write(f"写入文件[main.json]内容为[{self.main_data}]=data_manage.write")
+                log.write(f"写入文件[main.json]内容为[{self.main_data}]")
                 json.dump(self.main_data,file,indent=4,ensure_ascii=False)
         except Exception as e:
             log.write(f"在写入[main.json]时发生错误[{e}]",1)
@@ -357,7 +360,7 @@ class DataManage:
         day_file_path = os.path.normpath(os.path.join(self.path,f"Days/{gura_day}.json"))
         try:
             with open(day_file_path,"w",encoding=self.encode) as file:
-                log.write(f"写入文件[{gura_day}.json]内容为[{self.day_data}]=data_manage.write")
+                log.write(f"写入文件[{gura_day}.json]内容为[{self.day_data}]")
                 json.dump(self.day_data,file,indent=4,ensure_ascii=False)
         except Exception as e:
             log.write(f"在写入[{gura_day}.json]时发生错误[{e}]",1)
@@ -443,7 +446,7 @@ class logs:
 
     def close(self) ->None:
         """关闭日志"""
-        self.write("日志关闭=logs.close",3)
+        self.write("日志关闭",3)
         self.logs_on = False
         os.close(self.file)
 
@@ -479,50 +482,50 @@ class config_manage(): #配置控制
         return cls.obj
     
     def __init__(self):
-        log.write("初始化config_manage类=config_manage.__init__")
+        log.write("初始化config_manage类")
         self.data = config_manage.data
     
     def config_read(self) ->dict:
         """读取配置"""
-        log.write("读取配置文件=config_manage.config_read",3)
+        log.write("读取配置文件",3)
         try:
             with open("config.json",'r',encoding='utf-8') as file:
                 self.data = json.load(file)
                 self.data = self.updata(self.data)
         except FileNotFoundError: # 处理文件不存在的情况
-            log.write("配置文件不存在,尝试创建=config_manage.config_read",2)
+            log.write("配置文件不存在,尝试创建",2)
             self.write(self.data) 
             
         return self.data
     
     @classmethod
     def write(cls,data: dict,file_name: str="config.json") ->None:
-        log.write(f"写入文件[{file_name}],写入内容[{data}]=config_manage.write")
+        log.write(f"写入文件[{file_name}],写入内容[{data}]")
         with open(file_name,'w',encoding='utf-8') as file:
             json.dump(data,file,indent=4,ensure_ascii=False)
 
     @classmethod
     def updata(cls,read_data: dict) ->dict:
         is_updata = False
-        log.write("校对配置文件版本=config_manage.updata")
+        log.write("校对配置文件版本")
         for i in cls.data.keys():
             log.write(f"正在校对配置项[{i}]")
             if i in read_data:
                 continue
             else:
-                log.write(f"配置项[{i}]不存在,将执行重写操作=config_manage.updata",2)
+                log.write(f"配置项[{i}]不存在,将执行重写操作",2)
                 read_data[i] = cls.data[i] #补充值
                 is_updata = True
         
         if is_updata is True:
-            log.write("更新配置文件=config_manage.updata",3)
+            log.write("更新配置文件",3)
             cls.write(read_data)
         
         return read_data
 
     def change(self,config_name: str, config_set: Any) ->None:
         """修改配置"""
-        log.write(f"修改配置项[{config_name}]值为[{config_set}]=config_manage.change",3)
+        log.write(f"修改配置项[{config_name}]值为[{config_set}]",3)
         if config_name not in config_manage.data:
             log.write(f"未知配置项[{config_name}]试图修改,已拒绝",2)
             return None
@@ -629,8 +632,8 @@ class player:
     
     def loop(self):
         global is_loop
-        log.write(f"将单曲循环状态变更为[{is_loop}]",3)
         is_loop = not is_loop
+        log.write(f"将单曲循环状态变更为[{is_loop}]",3)
 
 class for_songs:
     def __init__(self,cfg: dict):
@@ -645,20 +648,32 @@ class for_songs:
     def player(self) ->None:
         global message,music_play_list,Lock
         del(music_play_list)
+        first_play = False
+        fix_already = False
         n = len(self.music_list)
         if n <= 0:
             log.write("播放列表未生成,拒绝调用",1)
             stop()
         
         while running:
-            if self.balance_play:
-                if Data.balance_play(self.music_list[self.music]) or is_loop:
+            if self.balance_play and (not first_play):
+                if Data.balance_play(self.music_list[self.music]) and (not is_loop):
                     log.write(f"接下来播放音乐[{Data.path_to_name(self.music_list[self.music])}]")
                     MusicPlayer.play(self.music_list[self.music])
+                
+                elif is_loop:
+                    log.write(f"正在循环播放音乐[{Data.path_to_name(self.music_list[self.music])}]")
+                    if not fix_already:
+                        log.write("修复循环播放次数")
+                        Data.loop_count_fix(self.music_list[self.music])
+                        fix_already = True
+                    MusicPlayer.play(self.music_list[self.music])
+
                 else:
-                    log.write(f"歌曲[{self.music_list[self.music]}]触发保护,跳过播放")
+                    log.write(f"歌曲[{Data.path_to_name(self.music_list[self.music])}]触发保护,跳过播放")
             else:
                 log.write(f"接下来播放音乐[{Data.path_to_name(self.music_list[self.music])}]")
+                first_play = False
                 MusicPlayer.play(self.music_list[self.music])
 
             with Lock:
@@ -666,18 +681,23 @@ class for_songs:
                     log.write(f"收到切歌消息[{message}]")
                     self.music = (self.music-1) % n #递减环绕
                     message = None
+                    first_play = True
+                    fix_already = False
                     continue
 
                 elif message == "next":
                     log.write(f"收到切歌消息[{message}]")
                     self.music = (self.music+1) % n
                     message = None
+                    first_play = True
+                    fix_already = False
                     continue
 
             if is_loop:
                 continue
             
             self.music = (self.music+1) % n
+            fix_already = False
 
     def list_play(self,music_path: list) ->None:
         log.write("生成顺序播放列表",3)
@@ -751,7 +771,7 @@ def get_gura_day(day: str | None = None) -> int:
 
 def pause() ->None: #暂停
     global is_pause
-    log.write(f"暂停函数被调用,当前状态[{is_pause}]=pause",3)
+    log.write(f"暂停函数被调用,当前状态[{is_pause}]",3)
     is_pause = not is_pause
 
 def stop() -> None:
@@ -759,25 +779,25 @@ def stop() -> None:
     running = False
 
     if Data != None:
-        log.write("结束统计器=stop")
+        log.write("结束统计器")
         Data.get_end_time()
-        Data.write()
+        Data.end_write()
 
     # 停止音乐播放
-    log.write("音乐播放停止=stop",3)
+    log.write("音乐播放停止",3)
     pygame.mixer.music.stop()
     pygame.mixer.music.unload()
     
 
     # 停止监听器
-    log.write("监听器停止=stop")
+    log.write("监听器停止")
     if listener != None:
         if listener.is_alive():
-            log.write("停止按键监听=stop")
+            log.write("停止按键监听")
             listener.stop()
     else:
-        log.write("监听器不存在=stop",2)
-    log.write("程序即将关闭=stop",3)
+        log.write("监听器不存在",2)
+    log.write("程序即将关闭",3)
     time.sleep(0.3)
     log.close()
     os._exit(0)  # 0 表示正常退出
