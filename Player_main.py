@@ -322,6 +322,7 @@ class DataManage:
                     (fix_loop_count, song_name)
                 )
         self.db.commit()
+        log.write(f"[{song_name}]的循环播放次数已修复")
 
     def write(self,day_change: bool = False) -> None:
         """最后写入"""
@@ -364,16 +365,6 @@ class DataManage:
                 json.dump(self.day_data,file,indent=4,ensure_ascii=False)
         except Exception as e:
             log.write(f"在写入[{gura_day}.json]时发生错误[{e}]",1)
-        
-        self.main_data= {
-            "all":0,
-            "year":{},
-            "month":{},
-            }
-        self.day_data = {
-            "all":0,
-            "song":{}
-            } 
 
     def close(self) ->None:
         """关闭数据统计"""
@@ -781,6 +772,7 @@ def stop() -> None:
     if Data != None:
         log.write("结束统计器")
         Data.get_end_time()
+        Data.write()
         Data.end_write()
 
     # 停止音乐播放
