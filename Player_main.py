@@ -1,5 +1,5 @@
 #Python:3.13
-import os,sys,json,random,time,atexit,threading,sqlite3
+import os,sys,json,random,time,threading,sqlite3
 from typing import Any
 import pygame # pip install pygame #2.6.1
 from pynput import keyboard # pip install pynput #1.8.1
@@ -14,15 +14,15 @@ main_path = os.path.dirname(sys.executable) if getattr(sys, 'frozen', False) els
 music_play_list = []
 Lock = threading.Lock()
 message = None
-running_environment = getattr(sys, 'frozen', False) # False 为python运行
 
 class DataManage:
     def __init__(self,cfg: dict) -> None:
         log.write("初始化数据统计模块")
         self.path = os.path.normpath(os.path.join(main_path,"data/"))
-        if not os.path.exists(self.path):
-            os.makedirs(self.path,exist_ok=True)
-            log.write("数据文件夹不存在,已创建",2)
+        check_path = os.path.normpath(os.path.join(self.path,"Days/"))
+        if not os.path.exists(check_path):
+            os.makedirs(check_path,exist_ok=True)
+            log.write("数据文件夹缺失,已创建",2)
 
         self.times = 0
         self.start_time = 0
@@ -46,7 +46,7 @@ class DataManage:
             }
         try:
             log.write("正在连接数据库",3)
-            self.db = sqlite3.connect("./data/main.db")
+            self.db = sqlite3.connect(os.path.normpath(os.path.join(self.path,"main.db")))
         except Exception as e:
             log.write(f"在连接数据库时发生未知错误[{e}],统计功能将禁用",1)
             self.is_ok = False
@@ -259,7 +259,7 @@ class DataManage:
         self.start_time = time.time()
         self.is_useful = True
     
-    def get_end_time(self) ->None:
+    def get_end_time(self) ->int | None:
         if not self.is_ok:
             return None
         
@@ -272,12 +272,13 @@ class DataManage:
         duration = int(t - self.start_time)
         log.write(f"本次记录播放时长为[{duration}]")
         self.times += duration
+        self.is_useful = False
 
         if self.today == today: # 如果是同日
-            return None
+            return duration
         # 跨日期
         self.write(day_change=True)
-        self.read()
+        return duration
     
     def read(self) ->None:            
         """读取文件"""
@@ -298,9 +299,14 @@ class DataManage:
             with open(day_file_path,"r",encoding=self.encode) as f:
                 self.day_data = json.load(f)
                 log.write(f"读取数据[{get_gura_day()}.json]")
+
         except FileNotFoundError:
             log.write(f"数据文件[{get_gura_day()}.json]不存在,将创建",2)
-            pass
+            self.day_data = {
+                "all": 0,
+                "song": {}
+                }
+            
         except Exception as e:
             log.write(f"处理[{get_gura_day()}.json]时发生未知错误[{e}],数据记录功能关闭",1)
             self.is_ok = False
@@ -325,7 +331,7 @@ class DataManage:
         log.write(f"[{song_name}]的循环播放次数已修复")
 
     def write(self,day_change: bool = False) -> None:
-        """最后写入"""
+        """写入"""
         if not self.is_ok:
             return None # 如果程序未能记录数据
         
@@ -344,8 +350,12 @@ class DataManage:
             log.write("检测到日期跨越,将重新加载数据",3)
             yester_gura_day = get_gura_day(self.today)
             self.end_write(yester_gura_day)
+            self.times = 0
             self.today = time.strftime("%Y%m%d")
-            self.read()
+            self.day_data = {
+                "all": 0,
+                "song": {}
+                }
     
     def end_write(self,gura_day: int | None = None) ->None:
         if not gura_day: # 默认日期
@@ -369,11 +379,15 @@ class DataManage:
     def close(self) ->None:
         """关闭数据统计"""
         self.write()
+        self.end_write()
         self.db.commit()
-        self.cursor.close()
-        self.db.close()
+        try:
+            self.cursor.close()
+            self.db.close()
+        except Exception as e:
+            log.write(f"在关闭数据库连接时发生异常[{e}]")
 
-class logs:
+class Log:
     obj = None
     def __new__(cls):
         if cls.obj == None:
@@ -387,6 +401,7 @@ class logs:
             os.makedirs(self.path,exist_ok=True)
         self.already_init = False
         self.levers = {4:"Debug",3:"Info ",2:"Warn ",1:"Error",0:"Panic"}
+        self.running_environment = getattr(sys, 'frozen', False) # False 为python运行
 
     def init(self,levers: int =4) ->None:
         """初始化日志"""
@@ -413,7 +428,7 @@ class logs:
         t = time.strftime("%H:%M:%S")
         txt = f"[{t} {lev}] |{content}\n"
         os.write(self.file,txt.encode())
-        if not running_environment:
+        if not self.running_environment:
             print(txt,end='')
 
     def del_old(self):
@@ -441,11 +456,11 @@ class logs:
         self.logs_on = False
         os.close(self.file)
 
-class config_manage(): #配置控制
+class ConfigManager: #配置控制
     obj = None
     data = {
         "音乐文件夹路径": [],  # 支持多个路径
-        "随机播放": (True, False),  # (启用, 是否真随机)
+        "播放模式": 0, # 0:顺序播放; 1:伪随机; 2:真随机;
         "定时播放": 0,  # 0 为无限，单位分钟
         "播完暂停": True,
         "平衡播放": True,
@@ -474,7 +489,7 @@ class config_manage(): #配置控制
     
     def __init__(self):
         log.write("初始化config_manage类")
-        self.data = config_manage.data
+        self.data = ConfigManager.data
     
     def config_read(self) ->dict:
         """读取配置"""
@@ -517,13 +532,13 @@ class config_manage(): #配置控制
     def change(self,config_name: str, config_set: Any) ->None:
         """修改配置"""
         log.write(f"修改配置项[{config_name}]值为[{config_set}]",3)
-        if config_name not in config_manage.data:
+        if config_name not in ConfigManager.data:
             log.write(f"未知配置项[{config_name}]试图修改,已拒绝",2)
             return None
         self.data[config_name] = config_set
         self.write(self.data)
 
-class player:
+class Player: # 播放器与相关设置
     obj = None
     def __new__(cls,cfg):
         if cls.obj == None:
@@ -543,20 +558,27 @@ class player:
         self.need_stop = False
         self.fist_play = True
         self.next_stop = False
+        self._pending_stop = False
         if self.play_time <= 0:
             self.need_stop = False
         else:
             self.need_stop = True
 
-    def play(self,path: str) ->None:
+    def play(self, path: str) -> None:
+        global running
+        started = False
+        change_music = False
         try:
-            log.write(f"加载音乐[{path}]",3)
+            log.write(f"加载音乐[{path}]", 3)
             pygame.mixer.music.load(path)
             Data.get_start_time()
             pygame.mixer.music.play(loops=0)
+            started = True
         except pygame.error:
-            log.write(f"加载[{path}]时失败",1)
+            log.write(f"加载[{path}]时失败", 1)
             return None
+
+        # 首次定时播放初始化
         if self.fist_play and self.need_stop:
             log.write("第一次开始播放音乐")
             self.start_time = time.time()
@@ -564,47 +586,68 @@ class player:
             log.write(f"预计定时播放停止时间[{self.end_time}]")
             self.fist_play = False
 
+        # 处理上一曲遗留的 next_stop 标记（定时停止后下一曲停止）
         if self.next_stop:
-            log.write("自定义播放时长已到,播放停止",3)
-            stop()
+            log.write("自定义播放时长已到, 本曲播放后将停止", 3)
+            self._pending_stop = True
 
-        while running and (pygame.mixer.music.get_busy() or self.__music_pause):
-            if is_pause and not self.__music_pause:  #暂停
-                log.write("暂停播放",3)
-                Data.get_end_time()
-                pygame.mixer.music.pause()
-                self.__music_pause = True
-            
-            elif not is_pause and self.__music_pause:  #继续
-                log.write("继续播放",3)
-                pygame.mixer.music.unpause()
-                Data.get_start_time()
-                self.__music_pause = False
-            
-            if self.stop:
-                Data.get_end_time()
-                pygame.mixer.music.pause()
-                pygame.mixer.music.unload()
-                self.stop = False
-                log.write(f"音乐[{path}]中止播放")
+        try:
+            while running and (pygame.mixer.music.get_busy() or self.__music_pause):
+                # 暂停/继续逻辑
+                if is_pause and not self.__music_pause:
+                    log.write("暂停播放", 3)
+                    Data.get_end_time()   # 暂停时记录已播放时长（可选）
+                    pygame.mixer.music.pause()
+                    self.__music_pause = True
+                elif not is_pause and self.__music_pause:
+                    log.write("继续播放", 3)
+                    pygame.mixer.music.unpause()
+                    Data.get_start_time()  # 恢复时重新计时
+                    self.__music_pause = False
+
+                # 主动停止（切换歌曲）
+                if self.stop:
+                    # 停止时记录历史由 finally 统一处理，这里只停止播放并退出循环
+                    try:
+                        pygame.mixer.music.pause()
+                        pygame.mixer.music.unload()
+                    except Exception as e:
+                        log.write(f"在停止[{path}]播放时发生错误[{e}]")
+                        pass
+                    self.stop = False
+                    change_music = True
+                    log.write(f"音乐[{path}]中止播放（主动停止）")
+                    return None  # 直接返回，finally 会记录历史
+
+                # 定时播放检查
+                if self.need_stop and not self.next_stop:
+                    self.now_time = time.time()
+                    if self.now_time >= self.end_time:
+                        log.write("定时播放设定时间已到", 3)
+                        if not self.after_play_stop:
+                            running = False
+                            break   # 退出播放循环
+                        else:
+                            log.write("下一曲将停止播放")
+                            self.next_stop = True
+
+                time.sleep(0.1)
+
+        finally:
+            # 只要歌曲开始播放过，就记录历史
+            if started:
+                duration = Data.get_end_time()
+                if duration is not None:
+                    History.write(path, duration)
+                log.write(f"记录歌曲[{path}]播放次数")
+                if not change_music:
+                    Data.count_song(path)
+
+            # 如果设置了待停止标志，则关闭整个程序
+            if self._pending_stop and self._pending_stop:
+                log.write("定时播放结束后停止程序")
+                running = False
                 return None
-            
-            if self.need_stop and not self.next_stop:
-                self.now_time = time.time()
-                if self.now_time >= self.end_time:
-                    log.write("定时播放设定时间已到",3)
-                    if  not self.after_play_stop:
-                        stop()
-                    elif self.after_play_stop:
-                        log.write("下一曲将停止播放")
-                        self.next_stop = True
-                
-            time.sleep(0.1)
-
-        if running:
-            Data.get_end_time()
-            log.write(f"记录歌曲[{path}]播放次数")
-            Data.count_song(path)
 
     def volume_change(self,setting: str) ->None:
         """调节音量"""
@@ -625,28 +668,33 @@ class player:
         global is_loop
         is_loop = not is_loop
         log.write(f"将单曲循环状态变更为[{is_loop}]",3)
+    
+    def stop_play(self) -> None:
+        self.stop = True
 
-class for_songs:
+class SongList: # 生成播放列表
     def __init__(self,cfg: dict):
         log.write("初始化for_songs类")
         self.music = 0
         self.music_list: list[str] = []
         self.true_list = []
         self.true_random_play_again = 3
-        self.balance_play = cfg["平衡播放"],
+        self.balance_play = cfg["平衡播放"]
         self.accept_same = cfg["伪随机可重复曲数"] if cfg["伪随机可重复曲数"] >= -1 else -1
 
     def player(self) ->None:
-        global message,music_play_list,Lock
+        global message,music_play_list,Lock,running
         del(music_play_list)
-        first_play = False
+        first_play = True
         fix_already = False
         n = len(self.music_list)
         if n <= 0:
             log.write("播放列表未生成,拒绝调用",1)
-            stop()
+            running = False
+            return
         
         while running:
+            time.sleep(0.05)
             if self.balance_play and (not first_play):
                 if Data.balance_play(self.music_list[self.music]) and (not is_loop):
                     log.write(f"接下来播放音乐[{Data.path_to_name(self.music_list[self.music])}]")
@@ -752,6 +800,42 @@ class for_songs:
         log.write("开始伪随机播放",3)
         self.player()
 
+class PlayHistoryManager: # 播放历史管理
+    def __init__(self) -> None:
+        log.write("正在初始化历史记录管理")
+        self.path = os.path.normpath(os.path.join(main_path,"data/"))
+        if not os.path.exists(self.path):
+            os.makedirs(self.path,exist_ok=True)
+            log.write("数据文件夹缺失,已创建",2)
+        try:
+            self.file = open(f"{self.path}\\History.nya","a",encoding="utf-8")
+        except Exception as e:
+            log.write(f"尝试打开播放历史记录时发生错误[{e}]")
+
+    def close(self) -> None:
+        self.file.close()
+        log.write("历史记录已安全关闭")
+    
+    def write(self,song_path: str,play_duration: int) -> None:
+        """
+        时间(年/月/日 - 24时:分:秒) | 歌曲名 | 完播率
+        """
+        song_name = Data.path_to_name(song_path)
+        song_info = Data.get_song(song_name)
+        if not song_info:
+            Data.add_song(song_path)
+            song_info = Data.get_song(song_name)
+        if not song_info:
+            return
+        duration = song_info.get("Duration",None)
+        if not duration:
+            return None
+        account_for = round(max(min(play_duration / duration * 100,100),0),2)
+        if account_for == 0:
+            return None
+        text = f"{time.strftime("%Y/%m/%d-%H:%M:%S")} | {song_name} | {account_for}%\n"
+        log.write(f"写入历史记录[{text.strip()}]")
+        self.file.write(text)
 
 def get_gura_day(day: str | None = None) -> int:
     today = day if day else time.strftime("%Y%m%d")
@@ -766,33 +850,8 @@ def pause() ->None: #暂停
     is_pause = not is_pause
 
 def stop() -> None:
-    global is_pause, running
+    global running
     running = False
-
-    if Data != None:
-        log.write("结束统计器")
-        Data.get_end_time()
-        Data.write()
-        Data.end_write()
-
-    # 停止音乐播放
-    log.write("音乐播放停止",3)
-    pygame.mixer.music.stop()
-    pygame.mixer.music.unload()
-    
-
-    # 停止监听器
-    log.write("监听器停止")
-    if listener != None:
-        if listener.is_alive():
-            log.write("停止按键监听")
-            listener.stop()
-    else:
-        log.write("监听器不存在",2)
-    log.write("程序即将关闭",3)
-    time.sleep(0.3)
-    log.close()
-    os._exit(0)  # 0 表示正常退出
 
 def summon_music_path(main_paths: list) -> list:
     log.write("开始生成音乐文件路径",3)
@@ -819,7 +878,7 @@ def create_hotkeys(config) -> dict:
     required_keys = ["暂停", "退出", "音量+", "音量-", "上一曲", "下一曲","单曲循环"]
     for key in required_keys:
         if key not in config:
-            config[key] = config_manage.data["按键管理"][key]
+            config[key] = ConfigManager.data["按键管理"][key]
             Configer.change("按键管理", config)
             log.write(f"按键监听缺失键[{key}],已修改",2)
             need_updata = True
@@ -838,11 +897,10 @@ def create_hotkeys(config) -> dict:
     log.write(f"返回监听字典[{_dict}]")
     return _dict
 
-atexit.register(stop)
 
-log = logs()
+log = Log()
 log.init(3)
-Configer = config_manage()
+Configer = ConfigManager()
 config: dict = Configer.config_read() #读取配置
 _lever = config["日志等级"]
 if 4 < _lever or _lever < 0:
@@ -851,8 +909,8 @@ else:
     log.change_lever(_lever)
 Data = DataManage(cfg=config)
 
-MusicPlayer = player(config)
-MusicList = for_songs(config)
+MusicPlayer = Player(config)
+MusicList = SongList(config)
 
 l_dict = create_hotkeys(config["按键管理"])
 log.write("初始化按键监听")
@@ -860,26 +918,48 @@ listener = keyboard.GlobalHotKeys(l_dict)
 log.write("开启按键监听",3)
 listener.start()
 
+History = PlayHistoryManager()
+
 def main():
-    music_play_list: list = summon_music_path(config["音乐文件夹路径"])
-    if music_play_list == []:
-        log.write("未获取到音乐文件夹路径,将退出程序",1)
-        stop()
-    play_method: tuple = config["随机播放"]
-    if play_method[0] == True:
-        if play_method[1] == True:
-            MusicList.true_random_play(music_play_list)
-        elif play_method[1] == False:
+    try:
+        music_play_list: list = summon_music_path(config["音乐文件夹路径"])
+        if music_play_list == []:
+            log.write("未获取到音乐文件夹路径,将退出程序",1)
+            stop()
+        play_method: int = config["播放模式"] # 0:顺序播放; 1:伪随机; 2:真随机;
+        if play_method == 0:
+            MusicList.list_play(music_play_list)
+        elif play_method == 1:
             MusicList.false_random_play(music_play_list)
+        elif play_method == 2:
+            MusicList.true_random_play(music_play_list)
         else:
             log.write(f"播放模式错误,将退出程序,当前播放模式设置为[{play_method}]",1)
             stop()
-    elif play_method[0] == False:
-        MusicList.list_play(music_play_list)
     
-    else:
-        log.write(f"播放模式错误,将退出程序,当前播放模式设置为[{play_method}]",1)
-        stop()
+    finally: 
+        if Data != None:
+            log.write("结束统计器")
+            Data.close()
+
+        # 停止音乐播放
+        log.write("音乐播放停止",3)
+        MusicPlayer.stop_play()
+        
+        History.close() # 关闭日志
+
+        # 停止监听器
+        log.write("监听器停止")
+        if listener != None:
+            if listener.is_alive():
+                listener.stop()
+        else:
+            log.write("监听器不存在",2)
+
+        log.write("程序即将关闭",3)
+        time.sleep(0.3)
+        log.close()
+        sys.exit(0)  # 0 表示正常退出
 
 if __name__ == "__main__":
     main()
