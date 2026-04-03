@@ -410,7 +410,7 @@ class Log:
         if not os.path.exists(self.path):
             os.makedirs(self.path,exist_ok=True)
 
-        file_path = os.path.normpath(os.path.join(self.path,f"{get_gura_day()}-{time.strftime('%H%M%S')}.wan"))
+        file_path = os.path.normpath(os.path.join(self.path,f"{get_gura_day()}-{time.strftime('%H%M%S')}.nya"))
         self.file = os.open(file_path,os.O_WRONLY | os.O_CREAT)
         os.write(self.file,"     *Thank You For Your Use*\n\n".encode())
         self.write_lever = levers
@@ -434,8 +434,8 @@ class Log:
     def del_old(self):
         try:
             log_list: list = os.listdir(self.path)
-            files = [file_name for file_name in log_list if os.path.splitext(file_name)[1] == ".wan"]
-            current_log_name = f"{get_gura_day()}-{time.strftime('%H%M%S')}.wan"
+            files = [file_name for file_name in log_list if os.path.splitext(file_name)[1] == ".nya"]
+            current_log_name = f"{get_gura_day()}-{time.strftime('%H%M%S')}.nya"
             if current_log_name in files:
                 files.remove(current_log_name)
             files.sort()
@@ -565,7 +565,7 @@ class Player: # 播放器与相关设置
             self.need_stop = True
 
     def play(self, path: str) -> None:
-        global running
+        global running,is_loop
         started = False
         change_music = False
         try:
@@ -576,6 +576,9 @@ class Player: # 播放器与相关设置
             started = True
         except pygame.error:
             log.write(f"加载[{path}]时失败", 1)
+            if is_loop:
+                log.write("当前开启循环播放,歌曲无法加载,为程序正常运行,已取消")
+                is_loop = False
             return None
 
         # 首次定时播放初始化
@@ -746,24 +749,30 @@ class SongList: # 生成播放列表
 
     def true_random_play(self,music_path: list) ->None:
         global message,Lock
+        first_play = True
         log.write("开始真随机播放",3)
         self.music_list = music_path
         n = len(self.music_list)
         self.music = random.randint(0,n-1)
 
         while running:
-            log.write(f"选取接下来播放音乐为[{Data.path_to_name(self.music_list[self.music])}]")
+            log.write(f"接下来播放音乐为[{Data.path_to_name(self.music_list[self.music])}]")
             MusicPlayer.play(self.music_list[self.music])
             with Lock:
                 if message != None:
                     log.write(f"收到切歌消息[{message}]")
+                    first_play = True
                     message = None
                     if is_loop:
                         self.music = random.randint(0,n-1)
                         continue
             if is_loop:
+                if first_play:
+                    Data.loop_count_fix(self.music_list[self.music])
+                    first_play = False
                 continue
             self.music = random.randint(0,n-1)
+            first_play = True
 
     def false_random_play(self,music_path: list) ->None:
         log.write("准备伪随机播放",3)
