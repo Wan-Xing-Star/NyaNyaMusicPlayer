@@ -11,6 +11,7 @@ NyaNyaMusic_v1.7.2.spec
 config.json
 /.vscode
 /.venv
+/release
 NyaNyaData.session.sql
 NyaNyaMusic_v2.0.0.spec
 Test.py
@@ -18,3 +19,5 @@ NyaNyaMusic_v2.0.1.spec
 NyaNyaData_v2.spec
 NyaNyaMusic_v2.0.2.spec
 NyaNyaMusic_v2.1.0.spec
+NyaNyaData_v2.0.spec
+NyaNyaData_v2.1.spec

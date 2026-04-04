@@ -2,9 +2,10 @@ from flask import Flask,render_template
 import os,sys,time,atexit,sqlite3,json,webbrowser,threading
 
 
-
 main_path = os.path.dirname(sys.executable) if getattr(sys, 'frozen', False) else os.path.dirname(__file__)
-app = Flask(__name__)
+app = Flask(__name__,
+            template_folder=os.path.normpath(os.path.join(main_path,"templates")),
+            static_folder=os.path.normpath(os.path.join(main_path,"static")))
 
 
 def stop():
@@ -17,7 +18,7 @@ class DataManage:
     def __init__(self) -> None:
         self.encode = 'utf-8'
         self.month_list = ["01","02","03","04","05","06","07","08","09","10","11","12"]
-        self.path = os.path.normpath(os.path.join(main_path,"data/"))
+        self.path = os.path.normpath(os.path.join(main_path,"data"))
         if not os.path.exists(self.path):
             os.makedirs(self.path,exist_ok=True)
         self.main_data = {}

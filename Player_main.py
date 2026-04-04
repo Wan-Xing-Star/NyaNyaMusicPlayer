@@ -18,8 +18,8 @@ message = None
 class DataManage:
     def __init__(self,cfg: dict) -> None:
         log.write("初始化数据统计模块")
-        self.path = os.path.normpath(os.path.join(main_path,"data/"))
-        check_path = os.path.normpath(os.path.join(self.path,"Days/"))
+        self.path = os.path.normpath(os.path.join(main_path,"data"))
+        check_path = os.path.normpath(os.path.join(self.path,"Days"))
         if not os.path.exists(check_path):
             os.makedirs(check_path,exist_ok=True)
             log.write("数据文件夹缺失,已创建",2)
@@ -396,7 +396,7 @@ class Log:
         return cls.obj
     
     def __init__(self):
-        self.path = os.path.normpath(os.path.join(main_path,"log/"))
+        self.path = os.path.normpath(os.path.join(main_path,"log"))
         if not os.path.exists(self.path):
             os.makedirs(self.path,exist_ok=True)
         self.already_init = False
