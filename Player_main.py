@@ -839,7 +839,7 @@ class PlayHistoryManager: # 播放历史管理
         duration = song_info.get("Duration",None)
         if not duration:
             return None
-        account_for = round(max(min(play_duration / duration * 100,100),0),2)
+        account_for = round(max(min(play_duration / duration * 100,100),0),0)
         if account_for == 0:
             return None
         text = f"{time.strftime("%Y/%m/%d-%H:%M:%S")} | {song_name} | {account_for}%\n"

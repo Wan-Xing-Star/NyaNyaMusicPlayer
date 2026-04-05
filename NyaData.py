@@ -1,4 +1,4 @@
-from flask import Flask,render_template
+from flask import Flask,render_template,request
 import os,sys,time,atexit,sqlite3,json,webbrowser,threading
 
 
@@ -13,6 +13,21 @@ def stop():
 
 atexit.register(stop)
 
+def get_gura_day(day: str | None = None) -> int:
+    today = day if day else time.strftime("%Y%m%d")
+    day_start = time.mktime(time.strptime("20250501","%Y%m%d"))
+    day_today = time.mktime(time.strptime(today,"%Y%m%d"))
+    duration = (day_today - day_start) // (24*60*60)
+    return int(duration)
+
+def get_ad_day(gura_day: str | int | None) -> str:
+    if not gura_day:
+        return time.strftime("%Y%m%d")
+    day_start = time.mktime(time.strptime("20250501","%Y%m%d"))
+    duration = int(gura_day) *60*60*24
+    day_ad = time.gmtime(day_start + duration)
+    return time.strftime("%Y%m%d",day_ad)
+
 
 class DataManage:
     def __init__(self) -> None:
@@ -21,16 +36,16 @@ class DataManage:
         self.path = os.path.normpath(os.path.join(main_path,"data"))
         if not os.path.exists(self.path):
             os.makedirs(self.path,exist_ok=True)
-        self.main_data = {}
-        self.read_main()
         self.today = time.strftime("%Y%m%d")
+        self.main_data = {}
+        self.get_main_data()
         try:
             self.db = sqlite3.connect(os.path.normpath(os.path.join(self.path,"main.db")))
         except Exception:
             stop()
         self.cursor = self.db.cursor()
     
-    def read_main(self):
+    def get_main_data(self):
         try:
             main_file_path = os.path.normpath(os.path.join(self.path,"main.json"))
             with open(main_file_path,"r",encoding=self.encode) as f:
@@ -40,7 +55,62 @@ class DataManage:
         except Exception as e:
             self.is_ok = False
     
-    def get_index_data(self) ->list:
+    def get_song(self, song_name: str) ->dict | None:
+        """
+        读取指定song的所有数据，返回该song行的所有字段内容。
+        :param song_name: 歌曲名(非路径)
+        :return: dict 或 None（未找到时）
+        """
+        if not self.is_ok:
+            return None
+        try:
+            self.cursor.execute("SELECT * FROM songs WHERE SongName = ?", (song_name,))
+            self.db.commit()
+            row = self.cursor.fetchone()
+            if row:
+                columns = [desc[0] for desc in self.cursor.description]
+                info = dict(zip(columns, row))
+                return info
+            else:
+                return None
+        except Exception as e:
+            return None
+        
+    def get_all_data(self) ->list[tuple] | None:
+        """
+        获取所有歌曲数据\n
+        -> list[tuple] | None
+        """
+        try:
+            self.cursor.execute("SELECT * FROM songs")
+            self.db.commit()
+            return self.cursor.fetchall()
+        except Exception as e:
+            print(f"在获取所有数据时发生[{e}]错误")
+            return None
+    
+    def get_day_data(self,gura_day: int) ->dict | None:
+        """
+        获取日听歌数据文件\n
+        ->dict | None
+        """
+        try:
+            with open(os.path.normpath(os.path.join(self.path,f"Days/{gura_day}.json"))) as file:
+                data = json.load(file)
+                if not data.get("all",0):
+                    return None
+                return data
+        except FileNotFoundError:
+            return None
+        except Exception as e:
+            print(f"在读取[{gura_day}.json]时出现错误[{e}]")
+    
+
+
+class ShowData(DataManage):
+    def __init__(self) -> None:
+        super().__init__()
+    def index_data(self) ->list:
         """
         获取主页数据\n
         -> tuple\n
@@ -63,16 +133,63 @@ class DataManage:
         data.append(month_data)
         return data
 
+    def song_data(self,song_name) ->dict | None:
+        """
+        获取指定歌曲数据
+        ->list\n
+        [0] 歌名\n
+        [1] 时长\n
+        [2] 作家\n
+        [3] 播放次数\n
+        [4] 单曲循环次数\n
+        [5] 第一次播放日期\n
+        [6] 上次播放日期\n
+        [7] 播放最多的一天\n
+        """
+        return self.get_song(song_name)
+    
+    def day_data(self,ad_day: str) -> dict | None:
+        """
+        获取单日听歌数据\n
+        -> dict | None\n
+        "all": [int] 听歌时长\n
+        "song": [dict] "song_name" : [list] [播放次数,循环播放次数]\n
+        """
+        day = get_gura_day(ad_day)
+        return self.get_day_data(day)
+    
+    def all_song_data(self) -> list[tuple] | None:
+        """
+        获取所有歌曲数据\n
+        -> list[tuple] | None
+        """
+        return self.get_all_data()
 
+        
 
-Data = DataManage()
+Show = ShowData()
 
 
 @app.route("/")
 def index():
-    data = Data.get_index_data()
+    data = Show.index_data()
     return render_template("NyaData.html", all_data = data)
 
+@app.route("/days")
+def days():
+    ad_day = request.args.get("day")
+    if not ad_day: # 未获取到url中的日期 全部返回空值
+        return
+    data = Show.day_data(ad_day)
+    if not data or (data.get(all,0)//60) < 1 : # 没有数据或者听歌时长小于1min时 #传值 0 和 []
+        return
+    return
+
+@app.route("/AllSong")
+def AllSong():
+    data = Show.all_song_data()
+    # 如果是空值就返回空值本身
+    return
 
 def open_browser():
     webbrowser.open_new("http://127.0.0.1:1812/")
