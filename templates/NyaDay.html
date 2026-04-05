@@ -36,9 +36,8 @@
     
     <!-- 脚本设置 -->
     <script>
-        // 数据精确到分
-        let dayTotal = {{day_total | tojson}};
-        let dayEach = {{day_each | tojson}};
+        let dayTotal = {{day_total | tojson}}; // int,精确到分
+        let dayEach = {{day_each | tojson}}; // 字典
         let dayEach_name;
         let dayEach_time;
         
@@ -71,13 +70,13 @@
                 dayEach_write();
             } else {
                 dayTotal_write();
-                for (let i = 0; i < dayEach.length; i++) {
-                    dayEach_name = dayEach[i][0];
-                    dayEach_time = dayEach[i][1];
-                    if (dayEach_time == null) {
+                for (let key in dayEach) {
+                    dayEach_time = key[i][0];
+                    if (key == null) {
                         dayEach_name = `多听一会儿再来喵`;
                         dayEach_time = `多听一会儿再来喵`;
                     } else {
+                        dayEach_name = key;
                         let timeHour = parseInt(dayEach_time / 60);
                         let timeMinute = dayEach_time - timeHour * 60;
                         dayEach_time = `${timeHour}小时${timeMinute}`;
