@@ -41,17 +41,17 @@
 }
 
 /* 数据展示的表格部分 */
-/* 设置数据总览和月数据的表格位置 */
+/* 设置表格位置 */
 table {
     border: 2px solid rgb(212, 212, 212);
     border-radius: 10px;
 }
 
-#totalHour_table {
+#totalHour_table, #dayTotal_table {
     float: left;
 }
 
-#monthData_table {
+#monthData_table, #dayEach_table {
     float: right;
 }
 
