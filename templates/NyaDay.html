@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="shortcut icon" href="/static/img/main.ico">
+    <link rel="stylesheet" type="text/css" href="/static/css/main.css">
+    <title>NyaDay - 每日数据展示</title>
+</head>
+<body>
+    <!-- 导航栏部分,所有数据在同一页面内 -->
+    <header>
+        <div id="nav">
+            <ul>
+                <li><a href="/main">数据总览</a></li>
+                <li><a href="/song">单曲信息</a></li>
+                <li><a href="/artist">歌手信息</a></li>
+                <li><a href="/day">每日数据</a></li>
+                <li style="float:right" id="nav_about"><a href="/about">关于</a></li>
+            </ul>
+        </div>
+    </header>
+    <div id="day">
+        <table id="dayTotal_table">
+            <tr>
+                <th>今日播放总时长</th>
+            </tr>
+        </table>
+        <table id="dayEach_table">
+            <tr>
+                <th>歌曲名</th>
+                <th>本日播放时长</th>
+            </tr>
+        </table>
+    </div>
+    
+    <!-- 脚本设置 -->
+    <script>
+        // 数据精确到分
+        let dayTotal = {{day_total | tojson}};
+        let dayEach = {{day_each | tojson}};
+        let dayEach_name;
+        let dayEach_time;
+        
+        // 向总时长写入数据
+        function dayTotal_write() {
+            let table = document.getElementById("dayTotal_table");
+            let newRow = table.insertRow(-1);
+            let newCell = new.insertCell(0);
+            newCell.innerText = `${dayTotal}分钟`;
+            console.log("已添加每日总时长至表格")
+        };
+
+        // 向每日歌曲信息写入数据(如有)
+        function dayEach_write(dayEach_time) {
+            let table = document.getElementById("dayEach_table");
+            let newRow = table.innerRow(-1);
+            let newCell0 = new.innerText(0);
+            newCell0.innerText(`${dayEach_name}`);
+            let newCell1 = new.innerText(1);
+            newCell1.innerText(`${dayEach_time}`);
+            console.log("已添加歌曲信息至表格")
+        };
+        
+        // 判断是否存在数据
+        function dayBranch() {
+            if (dayTotal == null) {
+                dayTotal = `本日还没有听歌喵~`;
+                dayEach = [`本日还没有听歌喵~`,`本日还没有听歌喵~`];
+                dayTotal_write();
+                dayEach_write();
+            } else {
+                dayTotal_write();
+                for (let i = 0; i < dayEach.length; i++) {
+                    dayEach_name = dayEach[i][0];
+                    dayEach_time = dayEach[i][1];
+                    if (dayEach_time == null) {
+                        dayEach_name = `多听一会儿再来喵`;
+                        dayEach_time = `多听一会儿再来喵`;
+                    } else {
+                        let timeHour = parseInt(dayEach_time / 60);
+                        let timeMinute = dayEach_time - timeHour * 60;
+                        dayEach_time = `${timeHour}小时${timeMinute}`;
+                    };
+                    dayEach_write();
+                }
+            };
+        };
+
+        // DOM加载后,分割列表并执行对应函数
+        window.addEventListener("DOMContentLoaded", function() {
+            dayBranch();
+        });
+
+
+
+
+    </script>
+    
+</body>
+</html>
