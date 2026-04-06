@@ -135,7 +135,7 @@ class ShowData(DataManage):
 
     def song_data(self,song_name) ->dict | None:
         """
-        获取指定歌曲数据
+        获取指定歌曲数据\n
         ->list\n
         [0] 歌名\n
         [1] 时长\n
@@ -153,7 +153,7 @@ class ShowData(DataManage):
         获取单日听歌数据\n
         -> dict | None\n
         "all": [int] 听歌时长\n
-        "song": [dict] "song_name" : [list] [播放次数,循环播放次数]\n
+        "song": [dict] "song_name" : [list] [播放次数,循环播放次数]
         """
         day = get_gura_day(ad_day)
         return self.get_day_data(day)
@@ -175,21 +175,21 @@ def index():
     data = Show.index_data()
     return render_template("NyaData.html", all_data = data)
 
-@app.route("/days")
+@app.route("/day")
 def days():
     ad_day = request.args.get("day")
     if not ad_day: # 未获取到url中的日期 全部返回空值
-        return
+        return render_template("NyaDay.html",day_total = None, day_each = None)
     data = Show.day_data(ad_day)
-    if not data or (data.get(all,0)//60) < 1 : # 没有数据或者听歌时长小于1min时 #传值 0 和 []
-        return
-    return
+    if not data or (data.get("all",0)//60) < 1 : # 没有数据或者听歌时长小于1min时 #传值None
+        return render_template("NyaDay.html",day_total = None, day_each = None)
+    return render_template("NyaDay.html", day_total = data.get("all",0) // 60, day_each = data.get("song",None))
 
-@app.route("/AllSong")
-def AllSong():
-    data = Show.all_song_data()
-    # 如果是空值就返回空值本身
-    return
+# @app.route("/AllSong")
+# def AllSong():
+#     data = Show.all_song_data()
+#     # 如果是空值就返回空值本身
+#     return
 
 def open_browser():
     webbrowser.open_new("http://127.0.0.1:1812/")

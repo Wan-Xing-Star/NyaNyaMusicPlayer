@@ -688,6 +688,7 @@ class SongList: # 生成播放列表
     def player(self) ->None:
         global message,music_play_list,Lock,running
         del(music_play_list)
+        play_the_first_song = True
         first_play = True
         fix_already = False
         n = len(self.music_list)
@@ -698,7 +699,8 @@ class SongList: # 生成播放列表
         
         while running:
             time.sleep(0.05)
-            if self.balance_play and (not first_play):
+            if self.balance_play and ((not first_play) or play_the_first_song):
+                play_the_first_song = False
                 if Data.balance_play(self.music_list[self.music]) and (not is_loop):
                     log.write(f"接下来播放音乐[{Data.path_to_name(self.music_list[self.music])}]")
                     MusicPlayer.play(self.music_list[self.music])
