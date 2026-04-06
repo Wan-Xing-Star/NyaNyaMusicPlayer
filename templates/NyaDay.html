@@ -8,11 +8,21 @@
     <title>NyaDay - 每日数据展示</title>
 </head>
 <body>
+    <script>
+        // 修改url
+        (function() {
+            const url = new URL(window.location.href);
+            if (!url.searchParams.has("day")) {
+                url.searchParams.set("day", "20260405");
+            }
+            window.history.replaceState({}, "", url);
+        })();
+    </script>
     <!-- 导航栏部分,所有数据在同一页面内 -->
     <header>
         <div id="nav">
             <ul>
-                <li><a href="/main">数据总览</a></li>
+                <li><a href="/">数据总览</a></li>
                 <li><a href="/song">单曲信息</a></li>
                 <li><a href="/artist">歌手信息</a></li>
                 <li><a href="/day">每日数据</a></li>
@@ -29,59 +39,67 @@
         <table id="dayEach_table">
             <tr>
                 <th>歌曲名</th>
-                <th>本日播放时长</th>
+                <th>播放次数</th>
             </tr>
         </table>
     </div>
     
     <!-- 脚本设置 -->
     <script>
-        let dayTotal = {{day_total | tojson}}; // int,精确到分
-        let dayEach = {{day_each | tojson}}; // 字典
-        let dayEach_name;
-        let dayEach_time;
-        
+        let dayTotal = {{day_total | tojson}}; // int或null,精确到分
+        let dayEach = {{day_each | tojson}}; // dic或null,传递为完播歌曲
+        let dayEach_name; // 歌曲名
+        let dayEach_time; // 播放次数
+        console.log(`本日播放${dayTotal}分`);
+        console.log(`歌曲信息${dayEach}`);
         // 向总时长写入数据
-        function dayTotal_write() {
+        function dayTotal_write(dayTotal) {
             let table = document.getElementById("dayTotal_table");
             let newRow = table.insertRow(-1);
-            let newCell = new.insertCell(0);
-            newCell.innerText = `${dayTotal}分钟`;
+            let newCell = newRow.insertCell(0);
+            newCell.innerText = `${dayTotal}`;
             console.log("已添加每日总时长至表格")
         };
 
         // 向每日歌曲信息写入数据(如有)
-        function dayEach_write(dayEach_time) {
+        function dayEach_write(dayEach_name, dayEach_time) {
             let table = document.getElementById("dayEach_table");
-            let newRow = table.innerRow(-1);
-            let newCell0 = new.innerText(0);
-            newCell0.innerText(`${dayEach_name}`);
-            let newCell1 = new.innerText(1);
-            newCell1.innerText(`${dayEach_time}`);
-            console.log("已添加歌曲信息至表格")
+            let newRow = table.insertRow(-1);
+            let newCell0 = newRow.insertCell();
+            newCell0.innerText = `${dayEach_name}`;
+            let newCell1 = newRow.insertCell();
+            newCell1.innerText = `${dayEach_time}`;
+            console.log("已添加歌曲信息至表格");
         };
         
         // 判断是否存在数据
         function dayBranch() {
-            if (dayTotal == null) {
+            if (dayTotal == (null || undefined)) {
+                // 无总时长
                 dayTotal = `本日还没有听歌喵~`;
-                dayEach = [`本日还没有听歌喵~`,`本日还没有听歌喵~`];
-                dayTotal_write();
-                dayEach_write();
+                dayEach_name = `本日还没有听歌喵~`;
+                dayEach_time = `本日还没有听歌喵~`;
+                console.log(`全部信息无`);
+                dayTotal_write(dayTotal);
+                dayEach_write(dayEach_name, dayEach_time);
+            } else if (dayEach == (null || undefined)) {
+                // 有总时长而无完播歌曲信息
+                console.log(`完播歌曲信息无`);
+                dayEach_name = `多听一会儿再来喵`;
+                dayEach_time = `多听一会儿再来喵`;
+                dayTotal += "分钟";
+                dayTotal_write(dayTotal);
+                dayEach_write(dayEach_name,dayEach_time);
             } else {
-                dayTotal_write();
+                // 均有
+                console.log(`本日信息完全`);
+                dayTotal_write(dayTotal);
                 for (let key in dayEach) {
-                    dayEach_time = key[i][0];
-                    if (key == null) {
-                        dayEach_name = `多听一会儿再来喵`;
-                        dayEach_time = `多听一会儿再来喵`;
-                    } else {
-                        dayEach_name = key;
-                        let timeHour = parseInt(dayEach_time / 60);
-                        let timeMinute = dayEach_time - timeHour * 60;
-                        dayEach_time = `${timeHour}小时${timeMinute}`;
-                    };
-                    dayEach_write();
+                    dayEach_time = dayEach[key][0];
+                    console.log(`曲名${key},播放次数${dayEach_time}`)
+                    dayEach_name = `${key}`;
+                    dayEach_time = `${dayEach_time}次`;
+                    dayEach_write(dayEach_name, dayEach_time);
                 }
             };
         };
@@ -90,10 +108,6 @@
         window.addEventListener("DOMContentLoaded", function() {
             dayBranch();
         });
-
-
-
-
     </script>
     
 </body>
