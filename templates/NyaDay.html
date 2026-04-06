@@ -9,11 +9,26 @@
 </head>
 <body>
     <script>
+        // 获取当日日期YYYYMMDD
+        const date = new Date();
+        console.log(date);
+        let nowDate = date.getFullYear();
+        if (date.getMonth() + 1 < 10) {
+            nowDate += `0${date.getMonth() + 1}`;
+        } else {
+            nowDate += `${date.getMonth() + 1}`;
+        };
+        if (date.getDate() + 1 < 10) {
+            nowDate += `0${date.getDate()}`;
+        } else {
+            nowDate += `${date.getDate()}`;
+        };
+        console.log(nowDate);
         // 修改url
         (function() {
             const url = new URL(window.location.href);
             if (!url.searchParams.has("day")) {
-                url.searchParams.set("day", "20260405");
+                url.searchParams.set("day", `${nowDate}`);
             }
             window.history.replaceState({}, "", url);
         })();
