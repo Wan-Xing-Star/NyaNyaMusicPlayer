@@ -40,7 +40,11 @@ class DataManage:
         self.main_data = {}
         self.get_main_data()
         try:
-            self.db = sqlite3.connect(os.path.normpath(os.path.join(self.path,"main.db")))
+            self.db = sqlite3.connect(
+                f"file:{os.path.normpath(os.path.join(self.path, 'main.db'))}?mode=ro",
+                uri=True,
+                check_same_thread=False
+            )
         except Exception:
             stop()
         self.cursor = self.db.cursor()
@@ -61,12 +65,11 @@ class DataManage:
         :param song_name: 歌曲名(非路径)
         :return: dict 或 None（未找到时）
         """
-        if not self.is_ok:
-            return None
         try:
             self.cursor.execute("SELECT * FROM songs WHERE SongName = ?", (song_name,))
             self.db.commit()
             row = self.cursor.fetchone()
+            print(row)
             if row:
                 columns = [desc[0] for desc in self.cursor.description]
                 info = dict(zip(columns, row))
@@ -74,6 +77,7 @@ class DataManage:
             else:
                 return None
         except Exception as e:
+            print(e)
             return None
         
     def get_all_data(self) ->list[tuple] | None:
@@ -104,7 +108,45 @@ class DataManage:
             return None
         except Exception as e:
             print(f"在读取[{gura_day}.json]时出现错误[{e}]")
-    
+
+    def get_most_play_day(self,song_name: str,start_day: str|None = None, end_day: str|None = None) -> tuple | None:
+        """
+        day: AD day\n
+        -> tuple(播放次数最多,循环播放最多)[Gura Day] | None
+        """
+        duration = [0,get_gura_day()]
+        most_loop,most_play = 0,0
+        most_loop_day,most_play_day = [],[]
+        if not start_day:
+            duration[0] = get_gura_day(start_day)
+        if not end_day:
+            duration[1] = get_gura_day(end_day)
+        if not os.path.exists(os.path.normpath(os.path.join(self.path,"Days"))):
+            os.makedirs(self.path,exist_ok=True)
+            return None
+        for day in range(duration[0],duration[1]+1):
+            day_data = self.get_day_data(day)
+            if not day_data:
+                continue
+            song_data: dict|None = day_data.get("song",None)
+            if not song_data:
+                continue
+            song: list = song_data.get(song_name,None)
+            if not song:
+                continue
+            if song[0] > most_play:
+                most_play_day = [day]
+                most_play = song[0]
+            elif song[0] == most_play:
+                most_play_day.append(day)
+            if song[1] > most_loop:
+                most_loop_day = [day]
+                most_loop = song[1]
+            elif song[1] == most_loop:
+                most_loop_day.append(day)
+        
+        return (most_play_day,most_loop_day)
+
 
 
 class ShowData(DataManage):
@@ -133,7 +175,7 @@ class ShowData(DataManage):
         data.append(month_data)
         return data
 
-    def song_data(self,song_name) ->dict | None:
+    def song_data(self,song_name) ->list | None:
         """
         获取指定歌曲数据\n
         ->list\n
@@ -145,8 +187,24 @@ class ShowData(DataManage):
         [5] 第一次播放日期\n
         [6] 上次播放日期\n
         [7] 播放最多的一天\n
+        [8] 循环播放最多的一天
         """
-        return self.get_song(song_name)
+        data = self.get_song(song_name)
+        if not data:
+            return None
+        list_data = []
+        for _ in data.keys():
+            list_data.append(data.get(_,None))
+        most_play = self.get_most_play_day(song_name)
+        list_data.extend([None,None])
+        if not most_play:
+            return list_data
+        for __ in range(len(most_play[0])):
+            most_play[0][__] = get_ad_day(most_play[0][__])
+        for __ in range(len(most_play[1])):
+            most_play[1][__] = get_ad_day(most_play[1][__])
+        list_data[7],list_data[8] = most_play[0],most_play[1]
+        return list_data
     
     def day_data(self,ad_day: str) -> dict | None:
         """
@@ -184,6 +242,17 @@ def days():
     if not data or (data.get("all",0)//60) < 1 : # 没有数据或者听歌时长小于1min时 #传值None
         return render_template("NyaDay.html",day_total = None, day_each = None)
     return render_template("NyaDay.html", day_total = data.get("all",0) // 60, day_each = data.get("song",None))
+
+@app.route("/song")
+def song():
+    song_name = request.args.get("songname")
+    if not song_name:
+        return render_template("NyaSong.html",song_data= [None for __ in range(9)])
+    print(song_name)
+    data = Show.song_data(song_name)
+    print(data)
+    return render_template("NyaSong.html",song_data= data)
+
 
 # @app.route("/AllSong")
 # def AllSong():
