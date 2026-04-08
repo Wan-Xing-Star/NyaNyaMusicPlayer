@@ -60,6 +60,7 @@
             </ul>
         </div>
     </header>
+    <h2>每日数据</h2>
     <div id="day">
         <table id="dayTotal_table">
             <tr>
@@ -96,7 +97,7 @@
             let table = document.getElementById("dayEach_table");
             let newRow = table.insertRow(-1);
             let newCell0 = newRow.insertCell();
-            newCell0.innerText = `${dayEach_name}`;
+            newCell0.innerText = `<a href=/song?songname=${dayEach_name}>${dayEach_name}</a>`;
             let newCell1 = newRow.insertCell();
             newCell1.innerText = `${dayEach_time}`;
             console.log("已添加歌曲信息至表格");

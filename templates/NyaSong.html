@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="shortcut icon" href="/static/img/main.ico">
+    <link rel="stylesheet" type="text/css" href="/static/css/main.css">
+    <title>NyaSong - 歌曲信息页</title>
+</head>
+<body>
+    <!-- 导航栏部分,所有数据在同一页面内 -->
+    <header>
+        <div id="nav">
+            <ul>
+                <li><a href="/">数据总览</a></li>
+                <li><a href="/song">单曲信息</a></li>
+                <li><a href="/artist">歌手信息</a></li>
+                <li><a href="/day">每日数据</a></li>
+                <li style="float:right" id="nav_about"><a href="/about">关于</a></li>
+            </ul>
+        </div>
+    </header>
+
+    <!--展示歌曲信息:其中2.7.8为嵌套列表
+        [0] 歌曲名
+        [1] 时长
+        [2] 作家
+        [3] 播放次数
+        [4] 单曲循环次数
+        [5] 第一次播放日期
+        [6] 上次播放日期
+        [7] 播放最多日期
+        [8] 循环播放最多日期 -->
+    <h2>歌曲信息</h2>
+    <table id="songData_table"></table>
+    <table>
+        <tr>
+            <td>歌曲名</td>
+            <td></td>
+        </tr>
+        <tr>
+            <td>时长</td>
+            <td></td>
+        </tr>
+        <tr>
+            <td>作家</td>
+            <td></td>
+        </tr>
+        <tr>
+            <td>播放次数</td>
+            <td>次</td>
+        </tr>
+        <tr>
+            <td>单曲循环次数</td>
+            <td>次</td>
+        </tr>
+        <tr>
+            <td>首次播放日期</td>
+            <td></td>
+        </tr>
+        <tr>
+            <td>上次播放日期</td>
+            <td></td>
+        </tr>
+        <tr>
+            <td>播放最多日期</td>
+            <td></td>
+        </tr>
+        <tr>
+            <td>循环播放最多日期</td>
+            <td></td>
+        </tr>
+    </table>
+    <!-- 脚本设置 -->
+    <script>
+        const songData = {{song_data | tojson}};
+        const songData_length = songData.length;
+
+        function tableWrite(songData_each) {
+            let table = document.getElementById("songData_table");
+            let cell = table.rows[i].cells[1];
+            cell.innerText = `${songData_each}`;
+            
+        }
+
+        function songData_search() {
+            let songData_array;
+            let songData_timeSplit;
+            let songData_each;
+            for (let i = 0; i < songData_length; i++) {
+                songData_each = songData[i];
+                // 多歌手判断
+                if (i == 2) {
+                    if (songData_each.length != (undefined || null)) {
+                        for (let i1 = 0; o < songData_each.length; i1++) {
+                            songData_array += `${songData_each[i1]}`;
+                            if (songData_each.length - i1 != 1) {
+                                songData_array += `/`;
+                            };
+                        };
+                        songData_each = songData_array;
+                    } else {
+                        songData_each = `还没有数据喵`;
+                    };
+                    
+                // 多时间判断
+                } else if (i == 7 || i == 8) {
+                    if (songData_each.length != (undefined || null)) {
+                        for (let i2 = 0; i2 < songData_each.length; i2 ++) {
+                            songData_timeSplit = songData_each[i2]; // 切割到单个的YYYYMMDD
+                            songData_array += `${songData_timeSplit.substring(0,4)}年${songData_timeSplit.substring(4,6)}月${songData_timeSplit.substring(6,8)}日`
+                            if (songData_each.length - i2 != 1) {
+                                songData_array += `和`;
+                            };
+                        };
+                        songData_each = songData_array;
+                    } else {
+                        songData_each = `还没有数据喵`;
+                    };
+                };
+                tableWrite(songData_each);
+            };
+        };
+
+        window.addEventListener("DOMContentLoaded", function() {
+            songData_search();
+        });
+    </script>
+</body>
+</html>
