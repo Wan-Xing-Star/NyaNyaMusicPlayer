@@ -69,7 +69,7 @@
         </table>
         <table id="dayEach_table">
             <tr>
-                <th><a href="#" onclick="">歌曲名</th>
+                <th><a href="#" onclick="nameSort();return false">歌曲名</th>
                 <th>播放次数</th>
             </tr>
         </table>
@@ -77,11 +77,8 @@
     
     <!-- 脚本设置 -->
     <script>
-        let dayTotal = 50000
-        let dayEach = {"gura":[20,0],"saba":[10,0], "neuro":[7,2]};
-
-        //let dayTotal = {{day_total | tojson}}; // int或null,精确到分
-        //let dayEach = {{day_each | tojson}}; // dic或null,传递为完播歌曲
+        let dayTotal = {{day_total | tojson}}; // int或null,精确到分
+        let dayEach = {{day_each | tojson}}; // dic或null,传递为完播歌曲
         let dayEach_name; // 歌曲名
         let dayEach_time; // 播放次数
         console.log(`本日播放${dayTotal}分`);
@@ -139,6 +136,18 @@
         };
 
         // 更改按照歌曲名的排序方式
+        function nameSort(dayEach) {
+            let temporaryDic_name = {};
+            let temporaryArr_name = [];
+            for (let key in dayEach) {
+                temporaryArr_name.unshift(key);
+            }
+            for (let i = 0; i < temporaryArr_name.length; i++) {
+                temporaryDic_name[`${temporaryArr_name[i]}`] = `${dayEach[`${temporaryArr_name[i]}`]}`
+            }
+            dayEach = temporaryDic_name;
+            dayBranch();
+        }
 
         // DOM加载后,分割列表并执行对应函数
         window.addEventListener("DOMContentLoaded", function() {
