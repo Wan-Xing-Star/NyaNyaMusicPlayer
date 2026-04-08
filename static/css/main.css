@@ -75,8 +75,21 @@ table tr th, table tr td {
 
 table tr td:hover {
     background-color: rgb(128, 215, 255);
+    color: white;
 }
 
 table tr th:hover {
     background-color: rgb(128, 215, 255);
+}
+
+table a {
+    display: block;
+    text-decoration: none;
+    color: black;
+    outline: none;
+    text-align: center;
+}
+
+table a:hover {
+    color: white;
 }
