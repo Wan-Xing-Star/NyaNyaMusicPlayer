@@ -69,7 +69,6 @@ class DataManage:
             self.cursor.execute("SELECT * FROM songs WHERE SongName = ?", (song_name,))
             self.db.commit()
             row = self.cursor.fetchone()
-            print(row)
             if row:
                 columns = [desc[0] for desc in self.cursor.description]
                 info = dict(zip(columns, row))
@@ -77,7 +76,7 @@ class DataManage:
             else:
                 return None
         except Exception as e:
-            print(e)
+            print(f"在获取歌曲[{song_name}]数据时发生[{e}]错误")
             return None
         
     def get_all_data(self) ->list[tuple] | None:
@@ -99,7 +98,7 @@ class DataManage:
         ->dict | None
         """
         try:
-            with open(os.path.normpath(os.path.join(self.path,f"Days/{gura_day}.json"))) as file:
+            with open(os.path.normpath(os.path.join(self.path,f"Days/{gura_day}.json")),encoding=self.encode) as file:
                 data = json.load(file)
                 if not data.get("all",0):
                     return None
@@ -248,9 +247,7 @@ def song():
     song_name = request.args.get("songname")
     if not song_name:
         return render_template("NyaSong.html",song_data= [None for __ in range(9)])
-    print(song_name)
     data = Show.song_data(song_name)
-    print(data)
     return render_template("NyaSong.html",song_data= data)
 
 
