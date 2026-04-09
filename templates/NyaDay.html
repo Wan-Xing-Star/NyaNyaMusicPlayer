@@ -8,46 +8,6 @@
     <title>NyaDay - 每日数据展示</title>
 </head>
 <body>
-    <script>
-        // 获取当日日期YYYYMMDD
-        function urlWrite() {
-            const date = new Date();
-            console.log(date);
-            let nowDate = date.getFullYear();
-            if (date.getMonth() + 1 < 10) {
-                nowDate += `0${date.getMonth() + 1}`;
-            } else {
-                nowDate += `${date.getMonth() + 1}`;
-            };
-            if (date.getDate() + 1 < 10) {
-                nowDate += `0${date.getDate()}`;
-            } else {
-                nowDate += `${date.getDate()}`;
-            };
-            console.log(nowDate);
-            // 修改url
-            (function() {
-                const url = new URL(window.location.href);
-                if (!url.searchParams.has("day")) {
-                    url.searchParams.set("day", `${nowDate}`);
-                }
-                window.history.replaceState({}, "", url);
-            })();
-        };
-    
-    // 监听DOM,起到刷新时更新功能
-    function onDOMReady(callback) {
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', callback); // 还在加载中，监听事件
-        } else {
-            callback(); // 已经加载完成，立即执行
-        };
-    };
-
-    onDOMReady(function() {
-        urlWrite();
-    });
-    </script>
     <!-- 导航栏部分,所有数据在同一页面内 -->
     <header>
         <div id="nav">
@@ -55,7 +15,7 @@
                 <li><a href="/">数据总览</a></li>
                 <li><a href="/song">单曲信息</a></li>
                 <li><a href="/artist">歌手信息</a></li>
-                <li><a href="/day">每日数据</a></li>
+                <li><a id="dayAnchor" href="/day">每日数据</a></li>
                 <li style="float:right" id="nav_about"><a href="/about">关于</a></li>
             </ul>
         </div>
@@ -69,7 +29,7 @@
         </table>
         <table id="dayEach_table">
             <tr>
-                <th><a href="#" onclick="nameSort();return false">歌曲名</th>
+                <th>歌曲名<input type="submit" id="nameSort" value="升序" onclick="nameSort(); return false;"></th>
                 <th>播放次数</th>
             </tr>
         </table>
@@ -78,7 +38,7 @@
     <!-- 脚本设置 -->
     <script>
         let dayTotal = {{day_total | tojson}}; // int或null,精确到分
-        let dayEach = {{day_each | tojson}}; // dic或null,传递为完播歌曲
+        let dayEach = {{day_each | tojson}}; // dic或null,传递为完播歌曲{name:[完播次数,循环次数]}
         let dayEach_name; // 歌曲名
         let dayEach_time; // 播放次数
         console.log(`本日播放${dayTotal}分`);
@@ -101,7 +61,17 @@
                 <td>${dayEach_time}</td>`
             console.log("已添加歌曲信息至表格");
         };
-        
+
+        // 删除表格内容
+        function tableDelete() {
+            let table = document.getElementById("dayEach_table");
+            while (table.rows.length > 1) {
+                table.deleteRow(1);
+            }
+            table = document.getElementById("dayTotal_table");
+            table.deleteRow(1);
+        }
+
         // 判断是否存在数据
         function dayBranch() {
             if (dayTotal == (null || undefined)) {
@@ -119,7 +89,7 @@
                 dayEach_time = `多听一会儿再来喵`;
                 dayTotal += "分钟";
                 dayTotal_write(dayTotal);
-                dayEach_write(dayEach_name,dayEach_time);
+                dayEach_write(dayEach_name, dayEach_time);
             } else {
                 // 均有
                 dayTotal += `分钟`;
@@ -136,21 +106,46 @@
         };
 
         // 更改按照歌曲名的排序方式
-        function nameSort(dayEach) {
-            let temporaryDic_name = {};
-            let temporaryArr_name = [];
+        function nameSort() {
+            let temporaryArr = [];
+            let temporaryDic = {};
             for (let key in dayEach) {
-                temporaryArr_name.unshift(key);
+                temporaryArr.unshift(key);
             }
-            for (let i = 0; i < temporaryArr_name.length; i++) {
-                temporaryDic_name[`${temporaryArr_name[i]}`] = `${dayEach[`${temporaryArr_name[i]}`]}`
+            for (let i = 0; i < temporaryArr.length; i++) {
+                temporaryDic[temporaryArr[i]] = dayEach[temporaryArr[i]]
             }
-            dayEach = temporaryDic_name;
+            dayEach = {};
+            dayEach = temporaryDic;
+            dayTotal = dayTotal.split("分钟")[0];
+            tableDelete();
             dayBranch();
         }
 
+        // 获取当日日期YYYYMMDD,写入a标签html
+        function urlWrite() {
+            const date = new Date();
+            console.log(date);
+            let nowDate = date.getFullYear();
+            if (date.getMonth() + 1 <= 10) {
+                nowDate += `0${date.getMonth() + 1}`;
+            } else {
+                nowDate += `${date.getMonth() + 1}`;
+            };
+            if (date.getDate() + 1 <= 10) {
+                nowDate += `0${date.getDate()}`;
+            } else {
+                nowDate += `${date.getDate()}`;
+            };
+            console.log(nowDate); // 格式化为YYYYMMDD
+            let dayAnchor = document.getElementById("dayAnchor");
+            dayAnchor.href = `/day?day=${nowDate}`;
+            console.log("每日数据url修改完成");
+        };
+
         // DOM加载后,分割列表并执行对应函数
         window.addEventListener("DOMContentLoaded", function() {
+            urlWrite();
             dayBranch();
         });
     </script>
