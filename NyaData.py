@@ -79,15 +79,15 @@ class DataManage:
             print(f"在获取歌曲[{song_name}]数据时发生[{e}]错误")
             return None
         
-    def get_all_data(self) ->list[tuple] | None:
+    def get_all_data(self) ->list[list] | None:
         """
         获取所有歌曲数据\n
-        -> list[tuple] | None
+        -> list[list] | None
         """
         try:
             self.cursor.execute("SELECT * FROM songs")
-            self.db.commit()
-            return self.cursor.fetchall()
+            row = self.cursor.fetchall()
+            return [list(rows) for rows in row]
         except Exception as e:
             print(f"在获取所有数据时发生[{e}]错误")
             return None
@@ -220,12 +220,21 @@ class ShowData(DataManage):
         day = get_gura_day(ad_day)
         return self.get_day_data(day)
     
-    def all_song_data(self) -> list[tuple] | None:
+    def all_song_data(self) -> list[list] | None:
         """
         获取所有歌曲数据\n
         -> list[tuple] | None
         """
-        return self.get_all_data()
+        data = self.get_all_data()
+        if data is None:
+            return None
+        for info in data:
+            if info[5]:
+                info[5] = time.strftime("%Y%m%d",time.localtime(info[5]))
+            if info[6]:
+                info[6] = time.strftime("%Y%m%d",time.localtime(info[6]))
+        
+        return data
 
         
 
@@ -256,11 +265,12 @@ def song():
     return render_template("NyaSong.html",song_data= data)
 
 
-# @app.route("/AllSong")
-# def AllSong():
-#     data = Show.all_song_data()
-#     # 如果是空值就返回空值本身
-#     return
+@app.route("/AllSong")
+def AllSong():
+    data = Show.all_song_data()
+    # 如果是空值就返回空值本身
+    print(data)
+    return render_template("NyaAll.html",foreverLove = data)
 
 def open_browser():
     # webbrowser.open_new("http://127.0.0.1:1812/")
