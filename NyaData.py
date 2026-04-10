@@ -116,9 +116,9 @@ class DataManage:
         duration = [0,get_gura_day()]
         most_loop,most_play = 0,0
         most_loop_day,most_play_day = [],[]
-        if not start_day:
+        if start_day is not None:
             duration[0] = get_gura_day(start_day)
-        if not end_day:
+        if end_day is not None:
             duration[1] = get_gura_day(end_day)
         if not os.path.exists(os.path.normpath(os.path.join(self.path,"Days"))):
             os.makedirs(self.path,exist_ok=True)
@@ -134,12 +134,14 @@ class DataManage:
             if not song:
                 continue
             if song[0] > most_play:
-                most_play_day = [day]
+                most_play_day = []
+                most_play_day.append(day)
                 most_play = song[0]
             elif song[0] == most_play:
                 most_play_day.append(day)
             if song[1] > most_loop:
-                most_loop_day = [day]
+                most_loop_day = []
+                most_loop_day.append(day)
                 most_loop = song[1]
             elif song[1] == most_loop:
                 most_loop_day.append(day)
@@ -198,13 +200,14 @@ class ShowData(DataManage):
         list_data.extend([None,None])
         if not most_play:
             return list_data
-        list_data[5] = get_ad_day(list_data[5])
-        list_data[6] = get_ad_day(list_data[6])
+        list_data[5] = time.strftime("%Y%m%d",time.localtime(list_data[5]))
+        list_data[6] = time.strftime("%Y%m%d",time.localtime(list_data[6]))
         for __ in range(len(most_play[0])):
             most_play[0][__] = get_ad_day(most_play[0][__])
         for __ in range(len(most_play[1])):
             most_play[1][__] = get_ad_day(most_play[1][__])
         list_data[7],list_data[8] = most_play[0],most_play[1]
+        print(list_data)
         return list_data
     
     def day_data(self,ad_day: str) -> dict | None:
@@ -260,7 +263,8 @@ def song():
 #     return
 
 def open_browser():
-    webbrowser.open_new("http://127.0.0.1:1812/")
+    # webbrowser.open_new("http://127.0.0.1:1812/")
+    pass
 
 def main():
     threading.Timer(1, open_browser).start()
