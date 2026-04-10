@@ -198,6 +198,8 @@ class ShowData(DataManage):
         list_data.extend([None,None])
         if not most_play:
             return list_data
+        list_data[5] = get_ad_day(list_data[5])
+        list_data[6] = get_ad_day(list_data[6])
         for __ in range(len(most_play[0])):
             most_play[0][__] = get_ad_day(most_play[0][__])
         for __ in range(len(most_play[1])):

@@ -1,5 +1,7 @@
+该版本主要用于测试功能的简单实现
+
 已知稳定版本
-v2.1.0
+v2.1.0  https://github.com/Wan-Xing-Star/NyaNyaMusicPlayer/releases/tag/v2.1.0
 v1.7.2 //统计信息格式不兼容
 
 
