@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="shortcut icon" href="/static/img/main.ico">
+    <link rel="stylesheet" type="text/css" href="/static/css/main.css">
+    <title>NyaAll - 所有歌曲信息页</title>
+</head>
+<body>
+    <!-- 导航栏部分,所有数据在同一页面内 -->
+    <header>
+        <div id="nav">
+            <ul>
+                <li><a href="/">数据总览</a></li>
+                <li><a href="/all">所有歌曲</a></li>
+                <li><a href="/song">单曲信息</a></li>
+                <li><a href="/artist">歌手信息</a></li>
+                <li><a id="dayAnchor" href="/day?day=">每日数据</a></li>
+                <li style="float:right" id="nav_about"><a href="/about">关于</a></li>
+            </ul>
+        </div>
+    </header>
+
+    <!-- 所有歌曲信息页 -->
+    <table id="foreverTable">
+        <tr>
+            <td>歌曲名</td>
+            <td></td>
+        </tr>
+        <tr>
+            <td>时长</td>
+            <td></td>
+        </tr>
+        <tr>
+            <td>歌手</td>
+            <td></td>
+        </tr>
+        <tr>
+            <td>总播放次数</td>
+            <td></td>
+        </tr>
+        <tr>
+            <td>循环播放次数</td>
+            <td></td>
+        </tr>
+        <tr>
+            <td>第一次播放日期</td>
+            <td></td>
+        </tr>
+        <tr>
+            <td>最后一次播放日期</td>
+            <td></td>
+        </tr>
+    </table>
+
+
+<script>
+        // 获取当日日期YYYYMMDD,写入a标签html
+        function urlWrite() {
+            const date = new Date();
+            console.log(date);
+            let nowDate = date.getFullYear();
+            if (date.getMonth() + 1 <= 10) {
+                nowDate += `0${date.getMonth() + 1}`;
+            } else {
+                nowDate += `${date.getMonth() + 1}`;
+            };
+            if (date.getDate() + 1 <= 10) {
+                nowDate += `0${date.getDate()}`;
+            } else {
+                nowDate += `${date.getDate()}`;
+            };
+            console.log(nowDate); // 格式化为YYYYMMDD
+            let dayAnchor = document.getElementById("dayAnchor");
+            dayAnchor.href = `/day?day=${nowDate}`;
+            console.log("每日数据url修改完成");
+        };
+
+        // 获取歌曲信息,foreverLove承接,嵌套列表
+        // [ [0]歌曲名,[1]时长,[2]歌手,[3]总播放次数,[4]循环播放次数,[5]第一次播放日期,[6]最后一次播放日期 ]
+        const foreverSong = {{foreverLove | tojson}};
+        function foreverSong_search () {
+            let table = document.getElementById("foreverTable");
+            let songArray; // 单曲信息列表
+            let songData; // 预存各信息
+            let songWrite = ""; // 最终写入信息
+            for (let i = 0; i < foreverSong.length; i++) {
+                songArray = foreverSong[i];
+                songData = "";
+                console.log(`第${i}首,歌曲名${songSplit[i]}`);
+                // 处理信息,执行写入函数
+                for (let iSong = 0; i < 7; i++) {
+                    console.log(`${"预留控制台信息"}`)
+                    if (iSong == 1) {
+                        songData = ``
+                    }
+                }
+            }
+        }
+
+        window.addEventListener("DOMContentLoaded", function() {
+            urlWrite();
+            foreverSong_search();
+        });
+</script>
+</body>
+</html>
