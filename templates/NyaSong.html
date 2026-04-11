@@ -21,10 +21,10 @@
         </div>
     </header>
 
-    <!--展示歌曲信息:其中2.7.8为嵌套列表
+    <!--展示歌曲信息
         [0] 歌曲名
         [1] 时长
-        [2] 作家
+        [2] 作家 多作家用";"隔开
         [3] 播放次数
         [4] 单曲循环次数
         [5] 第一次播放日期
@@ -32,8 +32,7 @@
         [7] 播放最多日期
         [8] 循环播放最多日期 -->
     <h2>歌曲信息</h2>
-    <table id="songData_table"></table>
-    <table>
+    <table id="songData_table">
         <tr>
             <td>歌曲名</td>
             <td></td>
@@ -84,42 +83,50 @@
 
         // 解析歌曲信息内容
         function songData_search() {
-            let songData_array;
-            let songData_timeSplit;
+            let songData_array = [];
             let songData_each;
             for (let i = 0; i < songData_length; i++) {
                 songData_each = songData[i];
-                console.log(songData_each);
-                // 多歌手判断
-                if (i == 2) {
-                    if (songData_each.length != (undefined || null)) {
-                        for (let i1 = 0; o < songData_each.length; i1++) {
-                            songData_array += `${songData_each[i1]}`;
-                            if (songData_each.length - i1 != 1) {
-                                songData_array += `/`;
-                            };
-                        };
-                        songData_each = songData_array;
+                console.log(`编号${i},数据格式${typeof(songData_each)},歌曲信息${songData_each}`);
+                // [1]播放时长判断:时分秒写入
+                if (i == 1) {
+                    let songData_hor = (songData_each - songData_each % 3600) / 3600;
+                    let songData_min = (songData_each % 3600 - songData_each % 3600 % 60) / 60;
+                    let songData_sec = songData_each % 3600 - songData_min * 60;
+                    if (songData_hor > 0) {
+                        songData_each = `${parseInt(songData_hor)}时${parseInt(songData_min)}分${parseInt(songData_sec)}秒`;
+                    } else if (songData_min > 0) {
+                        songData_each = `${parseInt(songData_min)}分${parseInt(songData_sec)}秒`;
+                    } else if (songData_sec > 0) {
+                        songData_each = `${parseInt(songData_sec)}秒`;
                     } else {
-                        songData_each = `还没有数据喵`;
-                    };
-                    
-                // 多时间判断
+                        songData_each = `有点弱...再多听一会儿吧`;
+                    }
+                // [2]多歌手判断:字符串,多歌手时用";"隔开(存疑)
+                } else if (i == 2) {
+                    songData_each = songData_each; // 占位用
+                // [7][8]多时间判断:多日期用","隔开
                 } else if (i == 7 || i == 8) {
-                    if (songData_each.length != (undefined || null)) {
-                        for (let i2 = 0; i2 < songData_each.length; i2 ++) {
-                            songData_timeSplit = songData_each[i2]; // 切割到单个的YYYYMMDD
-                            songData_array += `${songData_timeSplit.substring(0,4)}年${songData_timeSplit.substring(4,6)}月${songData_timeSplit.substring(6,8)}日`
-                            if (songData_each.length - i2 != 1) {
-                                songData_array += `和`;
-                            };
-                        };
-                        songData_each = songData_array;
+                    songData_each = `${songData_each}`;
+                    if (songData_each.length == 8) {
+                        songData_each = `${songData_each.substring(0,4)}年${songData_each.substring(4,6)}月${songData_each.substring(6,8)}日`;
                     } else {
-                        songData_each = `还没有数据喵`;
-                    };
-                };
+                        songData_array = songData_each.split(",");
+                        let songData_timeSpilt;
+                        let songData_eachTemp = "";
+                        for (let i1 = 0; i1 < songData_array.length; i1++) {
+                            songData_timeSpilt = songData_array[i1];
+                            songData_eachTemp += `${songData_timeSpilt.substring(0,4)}年${songData_timeSpilt.substring(4,6)}月${songData_timeSpilt.substring(6,8)}日`;
+                            if (songData_array.length - i1 != 1) {
+                                songData_eachTemp += `和`;
+                            }
+                        }
+                        songData_each = songData_eachTemp;
+                    }
+                }
+                console.log(`编号${i},歌曲信息(修改后)${songData_each}`);
                 tableWrite(songData_each, i);
+                songData_each = "";
             };
         };
 
