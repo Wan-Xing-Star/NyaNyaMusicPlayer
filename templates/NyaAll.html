@@ -22,37 +22,8 @@
         </div>
     </header>
 
-    <!-- 所有歌曲信息页 -->
-    <table id="foreverTable">
-        <tr>
-            <td>歌曲名</td>
-            <td></td>
-        </tr>
-        <tr>
-            <td>时长</td>
-            <td></td>
-        </tr>
-        <tr>
-            <td>歌手</td>
-            <td></td>
-        </tr>
-        <tr>
-            <td>总播放次数</td>
-            <td></td>
-        </tr>
-        <tr>
-            <td>循环播放次数</td>
-            <td></td>
-        </tr>
-        <tr>
-            <td>第一次播放日期</td>
-            <td></td>
-        </tr>
-        <tr>
-            <td>最后一次播放日期</td>
-            <td></td>
-        </tr>
-    </table>
+    <!-- 所有歌曲信息表格全部由脚本写入 -->
+
 
 
 <script>
@@ -78,18 +49,26 @@
         };
 
         // 为歌曲增加表格
-        function tableWrite(songData_array) {
-            table = document.createElement("table");
-            table.innerHTML = `
-            <tr><th>歌曲名</th><td>${songData_array[0]}</td></tr>
-            <tr><th>时长</th><td>${songData_array[1]}</td></tr>
-            <tr><th>歌手</th><td>${songData_array[2]}</td></tr>
-            <tr><th>总播放次数</th><td>${songData_array[3]}</td></tr>
-            <tr><th>循环播放次数</th><td>${songData_array[4]}</td></tr>
-            <tr><th>第一次播放日期</th><td>${songData_array[5]}</td></tr>
-            <tr><th>最后一次播放日期</th><td>${songData_array[6]}</td></tr>`
+        function tableWrite(songData_array, songData, iSong) {
+            let tableTh_array = ["歌曲名","播放时长","歌手","总播放次数","循环播放次数","首次播放日","最近播放日"];
+            let table = document.createElement("table");
+            let row;
+            table.id = `songTable_${iSong}`;
+            table.className = "allSong_table"
+            for (let i = 0; i < 7; i++) {
+                row = table.insertRow(-1);
+                row.insertCell().innerText = tableTh_array[i];
+                if (i == 0) {
+                    row.insertCell().innerHTML = `<a href="/song?songname=${songData[i]}">${songData_array[i]}</a>`;
+                } else if (i == 5 || i == 6) {
+                    row.insertCell().innerHTML = `<a href="/day?day=${songData[i]}">${songData_array[i]}</a>`;
+                } else {
+                    row.insertCell().innerText = songData_array[i];
+                }
+                    
+            };
+            document.body.appendChild(table); // 将表格添加到DOM树
         };
-
 
         // 获取歌曲信息,foreverLove承接,嵌套列表,时长格式秒(转化为时分秒),日期格式YYYYMMDD
         // [ [0]歌曲名,[1]时长,[2]歌手,[3]总播放次数,[4]循环播放次数,[5]第一次播放日期,[6]最后一次播放日期 ]
@@ -123,18 +102,19 @@
                     } else if (i == 2) {
                         console.log("预留多歌手判断和写入跳转链接功能");
                     // [3][4]播放次数格式化
-                    } else if (i == 3 || 4) {
+                    } else if (i == 3 || i == 4) {
                         songData_each = `${songData_each}次`
                     // [5][6]日期格式化
-                    } else if (i == 5 || 6) {
+                    } else if (i == 5 || i == 6) {
                         songData_each = `${songData_each}`; // 转为字符串
                         songData_each = `${songData_each.substring(0,4)}年${songData_each.substring(4,6)}月${songData_each.substring(6,8)}日`;
                     }
                     console.log(`编号${i},歌曲信息(修改后)${songData_each}`);
-                    songData_array.push[songData_each];
+                    songData_array.push(songData_each);
                 };
+                console.log(songData_array);
                 console.log(`完成歌曲信息处理,执行写入函数`);
-                tableWrite(songData_array);
+                tableWrite(songData_array, songData, iSong);
             };
         };
 
