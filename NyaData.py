@@ -108,6 +108,16 @@ class DataManage:
         except Exception as e:
             print(f"在读取[{gura_day}.json]时出现错误[{e}]")
 
+    def get_artist_song(self,artist: str) -> list[str] | None:
+        all_data = self.get_all_data()
+        if all_data is None:
+            return None
+        output = []
+        for info in all_data:
+            if artist in info[2]:
+                output.append(info[0])
+        return output
+
     def get_most_play_day(self,song_name: str,start_day: str|None = None, end_day: str|None = None) -> tuple | None:
         """
         day: AD day\n
@@ -148,7 +158,58 @@ class DataManage:
         
         return (most_play_day,most_loop_day)
 
+    def get_song_weight(self,song_name: str,start_day: str|None = None, end_day: str|None = None) -> float | None:
+        """
+        传入起止日期均为AD Day
+        """
+        FAVOUR_C = 1000
+        day = get_gura_day()
+        day_ad = int(time.time())
+        duration = [0,day]
+        if start_day is not None:
+            duration[0] = get_gura_day(start_day)
+        if end_day is not None:
+            duration[1] = get_gura_day(end_day)
 
+        if duration == [0,day]:
+            info = self.get_song(song_name)
+            if info is None:
+                return None
+            loop_count = info.get("LoopCount",0)
+            play_count = info.get("PlayCount",None)
+            if play_count is None:
+                return None
+            first_play = get_gura_day(time.strftime("%Y%m%d",time.localtime((info.get("FirstPlay",day_ad)))))
+            last_play = get_gura_day(time.strftime("%Y%m%d",time.localtime(info.get("LastPlay",day_ad))))
+            weight = FAVOUR_C * play_count * last_play / day / first_play * (loop_count / play_count +1)
+            return weight
+        
+        #处理日期段内的weight
+        loop_count,play_count,first_play,last_play = 0,0,duration[1],duration[0]
+        day = duration[1]
+        for days in range(duration[0],duration[1]+1):
+            day_data = self.get_day_data(days)
+            if not day_data:
+                continue
+            song_data: dict|None = day_data.get("song",None)
+            if not song_data:
+                continue
+            song: list = song_data.get(song_name,None)
+            if not song:
+                continue
+
+            if first_play > days:
+                first_play = days
+            last_play =days
+            play_count += song[0]
+            loop_count += song[1]
+        
+        if play_count == 0:
+            return None
+        first_play = get_gura_day(time.strftime("%Y%m%d",time.localtime(first_play)))
+        last_play = get_gura_day(time.strftime("%Y%m%d",time.localtime(last_play)))
+        weight = FAVOUR_C * play_count * last_play / day / first_play * (loop_count / play_count +1)
+        return weight
 
 class ShowData(DataManage):
     def __init__(self) -> None:
@@ -236,6 +297,54 @@ class ShowData(DataManage):
         
         return data
 
+    def artist_data(self,artist_name: str) ->list |None:
+        """
+        [0]:作家名\n
+        [1]:所有歌曲列表 [歌名,单曲时长,总播放次数,第一次播放时间(AD)]\n
+        [2]:最喜欢的3首歌 [歌名,歌名,歌名]\n
+        [3]:第一次听该歌手的日期\n
+        [4]:听该歌手时长
+        """
+        song_list = self.get_artist_song(artist_name)
+        if song_list is None:
+            return None
+        output_song_list = []
+        favour_song = {}
+        output_duration = 0
+        day = get_gura_day()
+        first_play_time = day
+
+        for song_name in song_list:
+            song_info = self.get_song(song_name)
+            if song_info is None:
+                continue
+            output_duration += song_info.get("PlayCount",0) * song_info.get("Duration",0)
+            first_time = song_info.get("FirstPlay",None)
+            if first_time is not None:
+                first_time = time.strftime("%Y%m%d",time.localtime(first_time))
+            output_song_list.append([song_name,song_info.get("Duration",None),song_info.get("PlayCount",None),first_time])
+            song_weight = self.get_song_weight(song_name)
+            if len(favour_song) < 3 and (song_weight is not None):
+                favour_song[song_name] = song_weight
+            elif song_weight is not None:
+                change_key = None
+                for old_info in favour_song.keys():
+                    if favour_song[old_info] < song_weight:
+                        change_key = old_info
+                        break
+                if change_key is not None:
+                    favour_song.pop(change_key)
+                    favour_song[song_name] = song_weight
+            
+            old_first_play = song_info.get("FirstPlay",None)
+            if old_first_play is None:
+                continue
+            old_first_play = get_gura_day(time.strftime("%Y%m%d",time.localtime(old_first_play)))
+            if first_play_time > old_first_play:
+                first_play_time = old_first_play
+        
+        output_favour_song = [name for name in favour_song.keys()]
+        return [artist_name,output_song_list,output_favour_song,get_ad_day(first_play_time),output_duration]
         
 
 Show = ShowData()
@@ -272,9 +381,17 @@ def AllSong():
     print(data)
     return render_template("NyaAll.html",foreverLove = data)
 
+@app.route("/artist")
+def Artist():
+    artist_name = request.args.get("artist")
+    if artist_name is None:
+        return render_template("NyaArtist.html",artistsTotal = None)
+    data_list = Show.artist_data(artist_name)
+    return render_template("NyaArtist.html",artistsTotal = data_list)
+
 def open_browser():
-    # webbrowser.open_new("http://127.0.0.1:1812/")
-    pass
+    webbrowser.open_new("http://127.0.0.1:1812/")
+    # pass
 
 def main():
     threading.Timer(1, open_browser).start()
