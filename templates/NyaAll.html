@@ -49,7 +49,7 @@
         };
 
         // 为歌曲增加表格
-        function tableWrite(songData_array, iSong) {
+        function tableWrite(songData_array, songData, iSong) {
             let tableTh_array = ["歌曲名","播放时长","歌手","总播放次数","循环播放次数","首次播放日","最近播放日"];
             let table = document.createElement("table");
             let row;
@@ -58,7 +58,14 @@
             for (let i = 0; i < 7; i++) {
                 row = table.insertRow(-1);
                 row.insertCell().innerText = tableTh_array[i];
-                row.insertCell().innerText = songData_array[i];
+                if (i == 0) {
+                    row.insertCell().innerHTML = `<a href="/song?songname=${songData[i]}">${songData_array[i]}</a>`;
+                } else if (i == 5 || i == 6) {
+                    row.insertCell().innerHTML = `<a href="/day?day=${songData[i]}">${songData_array[i]}</a>`;
+                } else {
+                    row.insertCell().innerText = songData_array[i];
+                }
+                    
             };
             document.body.appendChild(table); // 将表格添加到DOM树
         };
@@ -107,7 +114,7 @@
                 };
                 console.log(songData_array);
                 console.log(`完成歌曲信息处理,执行写入函数`);
-                tableWrite(songData_array, iSong);
+                tableWrite(songData_array, songData, iSong);
             };
         };
 
