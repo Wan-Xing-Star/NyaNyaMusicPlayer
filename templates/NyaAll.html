@@ -54,12 +54,14 @@
             let table = document.createElement("table");
             let row;
             table.id = `songTable_${iSong}`;
-            table.className = "allSong_table"
+            table.className = "allSong_table";
             for (let i = 0; i < 7; i++) {
                 row = table.insertRow(-1);
                 row.insertCell().innerText = tableTh_array[i];
                 if (i == 0) {
                     row.insertCell().innerHTML = `<a href="/song?songname=${songData[i]}">${songData_array[i]}</a>`;
+                } else if (i == 2) {
+                    row.insertCell().innerHTML = `<a href="/artist?artist=${songData[i]}">${songData_array[i]}</a>`;
                 } else if (i == 5 || i == 6) {
                     row.insertCell().innerHTML = `<a href="/day?day=${songData[i]}">${songData_array[i]}</a>`;
                 } else {

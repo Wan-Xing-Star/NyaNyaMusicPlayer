@@ -79,7 +79,12 @@
         function tableWrite(songData_each, i) {
             let table = document.getElementById("songData_table");
             let cell = table.rows[i].cells[1];
-            cell.innerText = `${songData_each}`;
+            if (i ==2) {
+                cell.innerHTML = `<a href="/artist?artist=${songData_each}">${songData_each}</a>`;
+            } else {
+                cell.innerText = `${songData_each}`;
+            }
+            
         }
 
         // 解析歌曲信息内容

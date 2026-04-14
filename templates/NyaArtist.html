@@ -23,13 +23,29 @@
     </header>
 
     <!-- 作家信息页 -->
-    <table>
+    <table id="artistMain_table" style="float: left;">
+        <tr><td colspan="2">基本信息</td></tr>
         <tr><td>作家名</td><td></td></tr>
         <tr><td>首次听歌日期</td><td></td></tr>
         <tr><td>听歌时长</td><td></td></tr>
-        <tr><td>最喜爱的歌曲</td><td></td></tr>
+    </table>
+    
+    <table id="artistFavourite_table" style="float: right;">
+        <tr><td colspan="1">最喜爱歌曲</td></tr>
+        <tr><td></td></tr>
+        <tr><td></td></tr>
+        <tr><td></td></tr>
     </table>
 
+    <table id="artistSong_table" style="float: inline-end;">
+        <tr><td colspan="4">所有歌曲</td></tr>
+        <tr>
+            <td>歌名</td>
+            <td>单曲时长</td>
+            <td>总播放次数</td>
+            <td>第一次播放时间</td>
+        </tr>
+    </table>
 
 <script>
         // 获取当日日期YYYYMMDD,写入a标签html
@@ -53,25 +69,102 @@
             console.log("每日数据url修改完成");
         };
 
-        // 写入作家信息
-        // 数据为列表 [0]作家名 [1]所有歌曲列表[歌名,单曲时长,总播放次数,第一次播放时间] [2]最喜欢的3首歌[歌名,歌名,歌名] [3]首次听歌日期 [4]听歌时长
         const artistTotal = {{artistsTotal | tojson}};
-        function songData_search() {
-            let artistEach;
-            let artistWrite_array = [];
-            for (let i = 0; i < artistTotal.length; i++) {
-                artistEach = artistTotal[i];
-                artistWrite_array = [];
-                if (i == 2) {
+        let writeFinal;
+        let iTableCheck = 0;
 
+        // 写入作家信息,数据为列表
+        // [0]作家名
+        // [1]所有歌曲列表[歌名,单曲时长,总播放次数,第一次播放时间]
+        // [2]最喜欢的3首歌[歌名,歌名,歌名]
+        // [3]首次听歌日期
+        // [4]听歌时长
+        function artistData_search() {
+            for (let i = 0; i < artistTotal.length; i++) {
+                writeFinal = artistTotal[i];
+                console.log(`第${i}项,数据格式${typeof(writeFinal)}`);
+                console.log(`歌曲信息${writeFinal}`);
+                if (i == 0) {
+                    writeFinal = `${writeFinal}`;
+                    iTableCheck = 1;
+                    mainTable_write(iTableCheck, writeFinal);
+                } else if (i == 3 || i == 4) {
+                    dayFormat(writeFinal);
+                } else if (i == 2) {
+                    favouriteTable_write(writeFinal);
+                } else {
+                    continue;
                 }
+
+                console.log(`写入第${i}项信息完成`)
             }
         }
 
+        // 格式化日期和时长
+        function dayFormat(writeFinal) {
+            let dayFormat_temp;
+            // 判断为日期
+            if (writeFinal.length == 8) {
+                writeFinal = `${writeFinal}`
+                dayFormat_temp = `<a href="/day?day=${writeFinal}">${writeFinal.substring(0,4)}年`;
+                if (writeFinal[4] == 0) {
+                    dayFormat_temp += `${writeFinal[5]}月`;
+                } else {
+                    dayFormat_temp += `${writeFinal.substring(4,5)}月`;
+                };
+                if (writeFinal[6] == 0) {
+                    dayFormat_temp += `${writeFinal[7]}日</a>`;
+                } else {
+                    dayFormat_temp += `${writeFinal.substring(6,7)}日</a>`;
+                }
+                iTableCheck = 2;
+            // 判断为时间
+            } else {
+                let songData_hor = (writeFinal - writeFinal % 3600) / 3600;
+                let songData_min = (writeFinal % 3600 - writeFinal % 3600 % 60) / 60;
+                let songData_sec = writeFinal % 3600 - songData_min * 60;
+                if (songData_hor > 0) {
+                    dayFormat_temp = `${parseInt(songData_hor)}时${parseInt(songData_min)}分${parseInt(songData_sec)}秒`;
+                } else if (songData_min > 0) {
+                    dayFormat_temp = `${parseInt(songData_min)}分${parseInt(songData_sec)}秒`;
+                } else if (songData_sec > 0) {
+                    dayFormat_temp = `${parseInt(songData_sec)}秒`;
+                } else {
+                    dayFormat_temp = `有点弱...再多听一会儿吧`;
+                }
+                iTableCheck = 3;
+            }
+            writeFinal = dayFormat_temp;
+            if (iTableCheck == 2 || iTableCheck ==3 ) {
+                mainTable_write(iTableCheck, writeFinal);
+            } else if (iTableCheck == 1) {
+                allTable_write();
+            }
+        }
+
+        // 向artistMain_table写入数据
+        function mainTable_write(iTableCheck, writeFinal) {
+            let table = document.getElementById("artistMain_table");
+            let cell = table.rows[iTableCheck].cells[1];
+            cell.innerHTML = `${writeFinal}`;
+        }
+
+        // 向artistFavourite_table写入数据
+        function favouriteTable_write(writeFinal) {
+            let table = document.getElementById("artistFavourite_table");
+            for (let i = 0; i < writeFinal.length; i++) {
+                table.rows[i+1].cells[0].innerHTML= `<a href="/song?songname=${writeFinal[i]}">${writeFinal[i]}</a>`;
+            }
+        }
+
+        // 向artistSong_table写入数据
+        function allTable_write() {
+            let table = document.getElementById("artistSong_table");
+        }
 
         window.addEventListener("DOMContentLoaded", function() {
             urlWrite();
-            songData_search();
+            artistData_search();
         });
 </script>
 </body>
