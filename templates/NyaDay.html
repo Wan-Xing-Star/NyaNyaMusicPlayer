@@ -30,8 +30,9 @@
         </table>
         <table id="dayEach_table">
             <tr>
-                <th>歌曲名<input type="submit" id="nameSort" value="升序" onclick="nameSort(); return false;"></th>
-                <th>播放次数</th>
+                <th>歌曲名<input type="submit" id="nameSort_btn" onclick="nameSort(); return false;"></th>
+                <th>播放次数<input type="submit" id="integerSort_btn" value="升序"></th>
+                <th>单曲循环次数</th>
             </tr>
         </table>
     </div>
@@ -39,88 +40,80 @@
     <!-- 脚本设置 -->
     <script>
         let dayTotal = {{day_total | tojson}}; // int或null,精确到分
-        let dayEach = {{day_each | tojson}}; // dic或null,传递为完播歌曲{name:[完播次数,循环次数]}
-        let dayEach_name; // 歌曲名
-        let dayEach_time; // 播放次数
-        console.log(`本日播放${dayTotal}分`);
-        console.log(`歌曲信息${dayEach}`);
-        // 向总时长写入数据
-        function dayTotal_write(dayTotal) {
+        let dayEach = {{day_each | tojson}}; // dic或null,传递为完播歌曲{name:[完播次数,单曲循环次数]}
+        let sortCheck = -1;
+        let nameArr = [];
+        for (let key in dayEach) {
+            nameArr.push(key);
+        }
+
+        // 格式化播放时长
+        function timeFormat() {
+            let songData_hor = (dayTotal - dayTotal % 3600) / 3600;
+            let songData_min = (dayTotal % 3600 - dayTotal % 3600 % 60) / 60;
+            let songData_sec = dayTotal % 3600 - songData_min * 60;
+            if (songData_hor > 0) {
+                dayTotal = `${parseInt(songData_hor)}时${parseInt(songData_min)}分${parseInt(songData_sec)}秒`;
+            } else if (songData_min > 0) {
+                dayTotal = `${parseInt(songData_min)}分${parseInt(songData_sec)}秒`;
+            } else if (songData_sec > 0) {
+                dayTotal = `${parseInt(songData_sec)}秒`;
+            } else {
+                dayTotal = `有点弱...再多听一会儿吧`;
+            }
+            console.log(`格式化日期完成:${dayTotal}`);
+            return dayTotal;
+        }
+
+        // 按名字排序,1正序,-1倒序
+        function nameSort() {
+            sortCheck = sortCheck === 1 ? -1 : 1;
+            if (sortCheck == 1) {
+                nameArr.sort();
+            } else {
+                nameArr.sort((a, b) => a < b ? 1 : -1);
+            }
+            console.log("排序完成", nameArr);
+            dayEach_tableWrite();
+        }
+
+        // dayTotal_table写入数据
+        function dayTotal_tableWrite() {
             let table = document.getElementById("dayTotal_table");
-            let newRow = table.insertRow(-1);
-            let newCell = newRow.insertCell(0);
-            newCell.innerText = `${dayTotal}`;
-            console.log("已添加每日总时长至表格")
-        };
+            if (dayTotal == 0 || dayTotal == null) {
+                table.insertRow(-1).insertCell().innerText = `有点弱...再多听一会儿吧`;
+            } else {
+                table.insertRow(-1).insertCell().innerText = dayTotal;
+            }
+            console.log("dayTotal_table写入完成");
+        }
 
-        // 向每日歌曲信息写入数据(如有)
-        function dayEach_write(dayEach_name, dayEach_time) {
+        // dayEach_table写入数据
+        function dayEach_tableWrite() {
+            let button = document.getElementById("nameSort_btn");
             let table = document.getElementById("dayEach_table");
-            let newRow = table.insertRow(-1);
-            newRow.innerHTML = `
-                <td><a href="/song?songname=${dayEach_name}">${dayEach_name}</td>
-                <td>${dayEach_time}</td>`
-            console.log("已添加歌曲信息至表格");
-        };
-
-        // 删除表格内容
-        function tableDelete() {
-            let table = document.getElementById("dayEach_table");
+            let row;
             while (table.rows.length > 1) {
                 table.deleteRow(1);
             }
-            table = document.getElementById("dayTotal_table");
-            table.deleteRow(1);
-        }
-
-        // 判断是否存在数据
-        function dayBranch() {
-            if (dayTotal == (null || undefined)) {
-                // 无总时长
-                dayTotal = `本日还没有听歌喵~`;
-                dayEach_name = `本日还没有听歌喵~`;
-                dayEach_time = `本日还没有听歌喵~`;
-                console.log(`全部信息无`);
-                dayTotal_write(dayTotal);
-                dayEach_write(dayEach_name, dayEach_time);
-            } else if (dayEach == (null || undefined)) {
-                // 有总时长而无完播歌曲信息
-                console.log(`完播歌曲信息无`);
-                dayEach_name = `多听一会儿再来喵`;
-                dayEach_time = `多听一会儿再来喵`;
-                dayTotal += "分钟";
-                dayTotal_write(dayTotal);
-                dayEach_write(dayEach_name, dayEach_time);
+            console.log(nameArr);
+            if (dayEach == null) {
+                row = table.insertRow(-1);
+                row.insertCell.innerText = "有点弱...再多听一会儿吧";
             } else {
-                // 均有
-                dayTotal += `分钟`;
-                console.log(`本日信息完全`);
-                dayTotal_write(dayTotal);
-                for (let key in dayEach) {
-                    dayEach_time = dayEach[key][0];
-                    console.log(`曲名${key},播放次数${dayEach_time}`)
-                    dayEach_name = `${key}`;
-                    dayEach_time = `${dayEach_time}次`;
-                    dayEach_write(dayEach_name, dayEach_time);
+                for (let i = 0; i < nameArr.length; i++) {
+                    row = table.insertRow(-1);
+                    row.insertCell(0).innerHTML = `<a href="/song?songname=${nameArr[i]}">${nameArr[i]}</a>`;
+                    row.insertCell(1).innerText = `${dayEach[nameArr[i]][0]}次`;
+                    row.insertCell(2).innerText = `${dayEach[nameArr[i]][1]}次`;
                 }
-            };
-        };
-
-        // 更改按照歌曲名的排序方式
-        function nameSort() {
-            let temporaryArr = [];
-            let temporaryDic = {};
-            for (let key in dayEach) {
-                temporaryArr.unshift(key);
             }
-            for (let i = 0; i < temporaryArr.length; i++) {
-                temporaryDic[temporaryArr[i]] = dayEach[temporaryArr[i]]
+            if (sortCheck == 1) {
+                button.value = "升序";
+            } else {
+                button.value = "降序";
             }
-            dayEach = {};
-            dayEach = temporaryDic;
-            dayTotal = dayTotal.split("分钟")[0];
-            tableDelete();
-            dayBranch();
+            console.log("dayEach_table写入完成");
         }
 
         // 获取当日日期YYYYMMDD,写入a标签html
@@ -147,9 +140,10 @@
         // DOM加载后,分割列表并执行对应函数
         window.addEventListener("DOMContentLoaded", function() {
             urlWrite();
-            dayBranch();
+            nameSort();
+            dayTotal = timeFormat();
+            dayTotal_tableWrite();
         });
     </script>
-    
 </body>
 </html>
