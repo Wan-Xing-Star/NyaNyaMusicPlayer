@@ -14,7 +14,7 @@
             <ul>
                 <li><a href="/">数据总览</a></li>
                 <li><a href="/AllSong">所有歌曲</a></li>
-                <li><a href="/song">单曲信息</a></li>
+                <li style="background-color: rgb(128, 215, 255)"><a href="/song">单曲信息</a></li>
                 <li><a href="/artist">歌手信息</a></li>
                 <li><a id="dayAnchor" href="/day">每日数据</a></li>
                 <li style="float:right" id="nav_about"><a href="/about">关于</a></li>
@@ -79,12 +79,32 @@
         function tableWrite(songData_each, i) {
             let table = document.getElementById("songData_table");
             let cell = table.rows[i].cells[1];
-            if (i ==2) {
+            if (i == 2) {
                 cell.innerHTML = `<a href="/artist?artist=${songData_each}">${songData_each}</a>`;
+            } else if (i == 5 || i == 6 || i == 7 || i == 8) {
+                let writeString = "";
+                if (songData_each != null) {
+                    for (let i1 = 0; i1 < songData_each.length; i1++) {
+                        writeString = `${songData_each[i1].substring(0,4)}年`
+                        if (toString(songData_each[i1])[4] == 0) {
+                            writeString += `${songData_each[i1].substring(5,6)}月`;
+                        } else {
+                            writeString += `${songData_each[i1].substring(4,6)}月`;
+                        }
+                        if (toString(songData_each[i1])[6] == 0) {
+                            writeString += `${songData_each[i1].substring(7,8)}日`;
+                        } else {
+                            writeString += `${songData_each[i1].substring(6,8)}日`;
+                        }
+                        cell.innerHTML += `<a href="/day?day=${songData_each[i1]}">${writeString}</a>`
+                    }
+                } else {
+                    cell.innerHTML = "暂无数据";
+                }
             } else {
                 cell.innerText = `${songData_each}`;
             }
-            
+            console.log(`编号${i}写入完成`);
         }
 
         // 解析歌曲信息内容
@@ -93,7 +113,7 @@
             let songData_each;
             for (let i = 0; i < songData_length; i++) {
                 songData_each = songData[i];
-                console.log(`编号${i},数据格式${typeof(songData_each)},歌曲信息${songData_each}`);
+                console.log(`编号${i},修改前数据格式${typeof(songData_each)},歌曲信息${songData_each}`);
                 // [1]播放时长判断:时分秒写入
                 if (i == 1) {
                     let songData_hor = (songData_each - songData_each % 3600) / 3600;
@@ -111,28 +131,32 @@
                 // [2]多歌手判断:字符串,多歌手时用";"隔开(存疑)
                 } else if (i == 2) {
                     songData_each = songData_each; // 占位用
-                // [7][8]多时间判断:多日期用","隔开
-                } else if (i == 7 || i == 8) {
-                    songData_each = `${songData_each}`;
-                    if (songData_each.length == 8) {
-                        songData_each = `${songData_each.substring(0,4)}年${songData_each.substring(4,6)}月${songData_each.substring(6,8)}日`;
-                    } else {
-                        songData_array = songData_each.split(",");
-                        let songData_timeSpilt;
-                        let songData_eachTemp = "";
-                        for (let i1 = 0; i1 < songData_array.length; i1++) {
-                            songData_timeSpilt = songData_array[i1];
-                            songData_eachTemp += `${songData_timeSpilt.substring(0,4)}年${songData_timeSpilt.substring(4,6)}月${songData_timeSpilt.substring(6,8)}日`;
-                            if (songData_array.length - i1 != 1) {
-                                songData_eachTemp += `和`;
+                // [7][8]多时间判断:多日期用","隔开,仅记录最近的三天
+                } else if (i == 5 || i == 6 || i == 7 || i == 8) {
+                    if (songData_each != null) {
+                        songData_each = `${songData_each}`;
+                        songData_array = [];
+                        if (songData_each.length != 8) {
+                            songData_array = songData_each.split(",");
+                            let songData_timeSpilt;
+                            let songData_eachTemp = "";
+                            songData_array.sort(); // 结果为[YYYYMMDD, YYYYMMDD, YYYYMMDD]
+                            songData_each = [];
+                            for (let i1 = 0; i1 < songData_array.length; i1++) {
+                                songData_each.push(songData_array[i1]);
+                                if (i1 == 2) {
+                                    break;
+                                }
                             }
+                            
+                        } else {
+                            songData_array.push(songData_each);
+                            songData_each = songData_array;
                         }
-                        songData_each = songData_eachTemp;
                     }
                 }
-                console.log(`编号${i},歌曲信息(修改后)${songData_each}`);
+                console.log(`编号${i},歌曲信息(修改后):`, songData_each);
                 tableWrite(songData_each, i);
-                songData_each = "";
             };
         };
 
